@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CH {{ channel_number }} // {{ channel_name }} (HLS)</title>
+  <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+  <style>
+    :root {
+      --bg: #0c0c0c;
+      --panel: #161616;
+      --border: #7a7a7a;
+      --border-bright: #d8d8d8;
+      --text: #e6e6e6;
+      --muted: #9e9e9e;
+      --accent: #ffffff;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 24px;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Courier New", Courier, Menlo, Monaco, monospace;
+      line-height: 1.45;
+    }
+    .container {
+      max-width: 1220px;
+      margin: 0 auto;
+    }
+    .header-bar {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      background: var(--border-bright);
+      color: #0c0c0c;
+      padding: 10px 16px;
+      border: 2px solid var(--accent);
+      margin-bottom: 20px;
+      font-weight: bold;
+      letter-spacing: 0.05em;
+    }
+    .header-bar .badge {
+      background: #111;
+      color: #f0f0f0;
+      padding: 4px 10px;
+      margin-right: 12px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.65fr 1fr;
+      gap: 20px;
+    }
+    @media (max-width: 960px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    .box {
+      background: var(--panel);
+      border: 2px solid var(--border);
+      padding: 16px;
+      box-shadow: inset 0 0 0 2px #0a0a0a;
+    }
+    .box-title {
+      background: #2b2b2b;
+      border: 1px solid var(--border);
+      padding: 6px 12px;
+      font-weight: bold;
+      margin: -16px -16px 16px -16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.95rem;
+    }
+    .crt-frame {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16 / 9;
+      background: #050505;
+      border: 3px solid var(--border-bright);
+      overflow: hidden;
+    }
+    video, #snapshotPreview {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      filter: grayscale(100%);
+      display: block;
+    }
+    #snapshotPreview {
+      display: none;
+    }
+    .controls-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+    button, .btn {
+      background: #262626;
+      color: var(--text);
+      border: 1px solid var(--border-bright);
+      padding: 7px 13px;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: bold;
+      cursor: pointer;
+      text-transform: uppercase;
+      text-decoration: none;
+    }
+    button:hover, .btn:hover {
+      background: var(--border-bright);
+      color: #0c0c0c;
+    }
+    .endpoint-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .endpoint-item {
+      background: #101010;
+      border: 1px solid #4d4d4d;
+      padding: 8px 10px;
+    }
+    .endpoint-label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .endpoint-url {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.86rem;
+      word-break: break-all;
+      color: #fff;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+    .stat-card {
+      background: #101010;
+      border: 1px solid #444;
+      padding: 8px 10px;
+    }
+    .stat-card .k {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    .stat-card .v {
+      font-size: 1.05rem;
+      font-weight: bold;
+      margin-top: 2px;
+    }
+    .wire-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.86rem;
+    }
+    .wire-table th, .wire-table td {
+      border: 1px solid #3c3c3c;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .wire-table th {
+      background: #242424;
+      color: #fff;
+    }
+    .src-tag {
+      display: inline-block;
+      padding: 1px 6px;
+      background: #dcdcdc;
+      color: #111;
+      font-weight: bold;
+      font-size: 0.76rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header-bar">
+      <div>
+        <span class="badge">CH {{ channel_number }}</span>
+        <span>{{ channel_name }} // {{ station_id }}</span>
+      </div>
+      <div id="liveClock">GREYSCALE HLS BROADCAST</div>
+    </div>
+
+    <div class="grid">
+      <!-- Left: Live HLS Monitor -->
+      <div class="box">
+        <div class="box-title">
+          <span>[ MONITOR // LIVE GREYSCALE HLS FEED ]</span>
+          <span id="streamStateBadge">CONNECTING...</span>
+        </div>
+        <div class="crt-frame">
+          <video id="hlsVideo" controls autoplay muted playsinline poster="/preview.png"></video>
+          <img id="snapshotPreview" src="/preview.png" alt="Bulletin Frame Preview" />
+        </div>
+        <div class="controls-row">
+          <button onclick="startHlsPlayer()">LIVE HLS VIDEO</button>
+          <button onclick="toggleSnapshotMode()">FRAME MONITOR (/preview.png)</button>
+          <button onclick="triggerRefresh()">REFRESH CBC &amp; CNN RSS NOW</button>
+          <a class="btn" href="/hls/stream.m3u8" target="_blank">OPEN .M3U8</a>
+        </div>
+      </div>
+
+      <!-- Right: Stream URLs & Telemetry -->
+      <div class="box">
+        <div class="box-title">
+          <span>[ STREAM ENDPOINTS &amp; TELEMETRY ]</span>
+          <span>HLS / IPTV</span>
+        </div>
+
+        <div class="endpoint-list">
+          <div class="endpoint-item">
+            <div class="endpoint-label">HLS Stream URL (.m3u8)</div>
+            <div class="endpoint-url">
+              <code id="urlHls">{{ hls_url }}</code>
+              <button onclick="copyText('{{ hls_url }}')">COPY</button>
+            </div>
+          </div>
+
+          <div class="endpoint-item">
+            <div class="endpoint-label">IPTV / Dispatcharr M3U Playlist</div>
+            <div class="endpoint-url">
+              <code>{{ m3u_url }}</code>
+              <button onclick="copyText('{{ m3u_url }}')">COPY</button>
+            </div>
+          </div>
+
+          <div class="endpoint-item">
+            <div class="endpoint-label">XMLTV EPG Guide URL</div>
+            <div class="endpoint-url">
+              <code>{{ epg_url }}</code>
+              <button onclick="copyText('{{ epg_url }}')">COPY</button>
+            </div>
+          </div>
+
+          <div class="endpoint-item">
+            <div class="endpoint-label">Direct MPEG-TS Stream (.ts)</div>
+            <div class="endpoint-url">
+              <code>{{ ts_url }}</code>
+              <button onclick="copyText('{{ ts_url }}')">COPY</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="k">CBC NEWS STORIES</div>
+            <div class="v" id="statCbc">{{ feed_status.cbc_count }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">CNN WIRE STORIES</div>
+            <div class="v" id="statCnn">{{ feed_status.cnn_count }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">TOTAL BULLETIN PAGES</div>
+            <div class="v" id="statPages">{{ feed_status.total_pages }}</div>
+          </div>
+          <div class="stat-card">
+            <div class="k">RESOLUTION / FPS</div>
+            <div class="v" id="statRes">{{ status.resolution }} @ {{ status.fps }}fps</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom: Active Wire Dispatches -->
+    <div class="box" style="margin-top: 20px;">
+      <div class="box-title">
+        <span>[ ACTIVE CBC &amp; CNN TELETYPE DISPATCH QUEUE ]</span>
+        <span id="lastUpdatedLabel">AUTO-REFRESH ENABLED</span>
+      </div>
+      <table class="wire-table">
+        <thead>
+          <tr>
+            <th style="width: 110px;">WIRE</th>
+            <th style="width: 140px;">CATEGORY</th>
+            <th>HEADLINE &amp; DISPATCH SUMMARY</th>
+            <th style="width: 140px;">FILED</th>
+          </tr>
+        </thead>
+        <tbody id="wireTableBody">
+          <tr><td colspan="4">LOADING WIRE DISPATCHES...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let hlsInstance = null;
+    let snapshotTimer = null;
+    const videoEl = document.getElementById('hlsVideo');
+    const snapEl = document.getElementById('snapshotPreview');
+    const badgeEl = document.getElementById('streamStateBadge');
+
+    function startHlsPlayer() {
+      if (snapshotTimer) {
+        clearInterval(snapshotTimer);
+        snapshotTimer = null;
+      }
+      snapEl.style.display = 'none';
+      videoEl.style.display = 'block';
+
+      const src = '/hls/stream.m3u8';
+      if (Hls.isSupported()) {
+        if (hlsInstance) hlsInstance.destroy();
+        hlsInstance = new Hls({
+          liveSyncDurationCount: 3,
+          enableWorker: true
+        });
+        hlsInstance.loadSource(src);
+        hlsInstance.attachMedia(videoEl);
+        hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => {
+          badgeEl.textContent = 'ON AIR (HLS)';
+          videoEl.play().catch(() => {});
+        });
+        hlsInstance.on(Hls.Events.ERROR, (event, data) => {
+          if (data.fatal) {
+            badgeEl.textContent = 'WARMING UP HLS...';
+            setTimeout(startHlsPlayer, 2500);
+          }
+        });
+      } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        videoEl.src = src;
+        videoEl.addEventListener('loadedmetadata', () => {
+          badgeEl.textContent = 'ON AIR (NATIVE HLS)';
+          videoEl.play().catch(() => {});
+        });
+      }
+    }
+
+    function toggleSnapshotMode() {
+      if (hlsInstance) {
+        hlsInstance.destroy();
+        hlsInstance = null;
+      }
+      videoEl.pause();
+      videoEl.style.display = 'none';
+      snapEl.style.display = 'block';
+      badgeEl.textContent = 'LIVE FRAME MONITOR';
+      if (snapshotTimer) clearInterval(snapshotTimer);
+      snapshotTimer = setInterval(() => {
+        snapEl.src = '/preview.png?t=' + Date.now();
+      }, 1000);
+    }
+
+    async function fetchStatus() {
+      try {
+        const res = await fetch('/api/status');
+        const data = await res.json();
+        document.getElementById('statCbc').textContent = data.feeds.cbc_count;
+        document.getElementById('statCnn').textContent = data.feeds.cnn_count;
+        document.getElementById('statPages').textContent = data.feeds.total_pages;
+
+        const tbody = document.getElementById('wireTableBody');
+        if (data.sample_headlines && data.sample_headlines.length > 0) {
+          tbody.innerHTML = data.sample_headlines.map(item => `
+            <tr>
+              <td><span class="src-tag">${item.source}</span><br/><small>${item.wire_code}</small></td>
+              <td>${item.category}</td>
+              <td><strong>${item.title}</strong><br/><span style="color:#b5b5b5;">${item.summary}</span></td>
+              <td>${item.published}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (e) {}
+    }
+
+    async function triggerRefresh() {
+      badgeEl.textContent = 'REFRESHING FEEDS...';
+      await fetch('/api/refresh', { method: 'POST' });
+      await fetchStatus();
+      badgeEl.textContent = 'FEEDS UPDATED';
+    }
+
+    function copyText(txt) {
+      navigator.clipboard.writeText(txt);
+    }
+
+    startHlsPlayer();
+    fetchStatus();
+    setInterval(fetchStatus, 10000);
+  </script>
+</body>
+</html>

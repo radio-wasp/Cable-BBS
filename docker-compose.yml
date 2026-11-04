@@ -1,0 +1,26 @@
+services:
+  cable-bulletin-hls:
+    build: .
+    image: cable-bulletin-hls:latest
+    container_name: cable-bulletin-hls
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8080}:8080"
+    environment:
+      - PORT=8080
+      - TZ=America/Halifax
+      - CHANNEL_NUMBER=03
+      - CHANNEL_NAME=CABLETEXT BULLETIN
+      - STATION_ID=CATV-03 WIRE SERVICE
+      - WIDTH=1280
+      - HEIGHT=720
+      - FPS=24
+      - PAGE_DURATION=12
+      - TYPEWRITER_DURATION=1.6
+      - TICKER_SPEED=110
+      - SCANLINES=true
+      - CRT_NOISE=true
+      - CRT_VIGNETTE=true
+      - AUDIO_MODE=stream
+      - AUDIO_STREAM_URL=https://chi-master3-entry1.leanstream-hd.com:2113/CKULFM
+      - REFRESH_INTERVAL_MINUTES=10
