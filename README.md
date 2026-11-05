@@ -8,6 +8,19 @@ Unlike browser-capture streamers, `cable-bulletin-hls` does **not** use Chromium
 
 ---
 
+## Screenshots
+
+### Live HLS Broadcast Output (`/hls/stream.m3u8` & `/preview.png`)
+![Live Broadcast Output](screenshots/broadcast-output.svg)
+
+### Built-In Admin Portal (`http://<host>:8080/`)
+![Admin Portal UI](screenshots/admin-portal.svg)
+
+### Original 2005 ASN / Cable 10 Reference Capture
+![Original 2005 ASN Cable 10 Reference](screenshots/reference-asn-2005.jpg)
+
+---
+
 ## Screen Layout (ASN / Cable 10 Reference Style)
 
 ```text
@@ -200,6 +213,7 @@ cable-bulletin-hls/
 ├── docker-compose.yml       # Docker Compose configuration with ./data volume
 ├── requirements.txt         # FastAPI, Uvicorn, Jinja2, Pillow
 ├── README.md                # Documentation
+├── screenshots/             # Broadcast output, Admin Portal, and 2005 ASN reference images
 └── app/
     ├── config.py            # Environment variable defaults
     ├── settings_store.py    # Persistent JSON store (/app/data/settings.json) for feeds, radio presets & banner
