@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720">
+  <defs>
+    <!-- Bottom banner purple/indigo vertical gradient -->
+    <linearGradient id="bannerBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#3a1272"/>
+      <stop offset="55%" stop-color="#260e58"/>
+      <stop offset="100%" stop-color="#160a38"/>
+    </linearGradient>
+    <!-- Magenta-violet glow behind ASN -->
+    <radialGradient id="asnGlow" cx="0.28" cy="0.45" r="0.38">
+      <stop offset="0%" stop-color="#6e1e9e" stop-opacity="0.75"/>
+      <stop offset="100%" stop-color="#260e58" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 3D Metallic Blue-Chrome Face Gradient for ASN -->
+    <linearGradient id="asnChrome" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8092ee"/>
+      <stop offset="36%" stop-color="#eef0ff"/>
+      <stop offset="54%" stop-color="#6878ea"/>
+      <stop offset="100%" stop-color="#3244cc"/>
+    </linearGradient>
+    <!-- CRT Scanline Pattern -->
+    <pattern id="scanlines" width="4" height="2" patternUnits="userSpaceOnUse">
+      <rect width="4" height="1" fill="#000000" fill-opacity="0.14"/>
+    </pattern>
+    <!-- Drop Shadow Filter -->
+    <filter id="dropShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="4" dy="4" stdDeviation="1" flood-color="#051230" flood-opacity="0.95"/>
+    </filter>
+    <filter id="topShadow" x="-10%" y="-10%" width="130%" height="130%">
+      <feDropShadow dx="4" dy="4" stdDeviation="1" flood-color="#101012" flood-opacity="0.95"/>
+    </filter>
+  </defs>
+
+  <!-- 1. TOP BAND (Gunmetal Grey Bar with 3D Bevel) -->
+  <rect x="0" y="0" width="1280" height="106" fill="#60605e"/>
+  <rect x="0" y="106" width="1280" height="3" fill="#4a4a48"/>
+  <rect x="0" y="109" width="1280" height="3" fill="#24262a"/>
+  <line x1="0" y1="112" x2="1280" y2="112" stroke="#5a7aa8" stroke-width="1.5"/>
+
+  <!-- Top Left Date & Top Right Time -->
+  <g font-family="Arial, Helvetica, Liberation Sans, sans-serif" font-weight="bold" font-size="44" fill="#e8e8ec" filter="url(#topShadow)">
+    <text x="96" y="72" transform="scale(1.08, 1)">Thu Nov 5, 2026</text>
+    <text x="1088" y="72" text-anchor="end" transform="scale(1.08, 1)">3:42 pm</text>
+  </g>
+
+  <!-- 2. MIDDLE BAND (Classic ASN Royal Blue Bulletin Field) -->
+  <rect x="0" y="113" width="1280" height="407" fill="#0c3a80"/>
+
+  <!-- Indented All-Caps Slab-Serif Bulletin Story -->
+  <g font-family="'Courier New', CourierPrime, FreeMono, monospace" font-weight="bold" font-size="43" fill="#d6e2f6" filter="url(#dropShadow)" letter-spacing="1.5">
+    <text x="150" y="182">PRIME MINISTER PAUL MARTIN</text>
+    <text x="64"  y="240">TOLD HIS CAUCUS THAT HE'S</text>
+    <text x="64"  y="298">PROUD OF WHAT THE LIBERAL</text>
+    <text x="64"  y="356">GOVERNMENT HAS ACCOMPLISHED IN</text>
+    <text x="64"  y="414">THE LAST 17 MONTHS.</text>
+  </g>
+
+  <!-- 3. BOTTOM BAND (ASN Cable 10 Graphic Promo Banner) -->
+  <rect x="0" y="520" width="1280" height="200" fill="url(#bannerBg)"/>
+  <rect x="0" y="520" width="1280" height="200" fill="url(#asnGlow)"/>
+
+  <!-- Faint angled NEWS watermarks -->
+  <g opacity="0.22" transform="rotate(-7 320 620)" font-family="Arial, Helvetica, sans-serif" font-weight="bold" font-size="30" fill="#7055b8" stroke="#523898" stroke-width="1">
+    <rect x="40" y="535" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="52" y="564">NEWS</text>
+    <rect x="210" y="535" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="222" y="564">NEWS</text>
+    <rect x="380" y="535" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="392" y="564">NEWS</text>
+    <rect x="120" y="590" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="132" y="619">NEWS</text>
+    <rect x="290" y="590" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="302" y="619">NEWS</text>
+    <rect x="460" y="590" width="130" height="36" fill="none" stroke="#523898" stroke-width="2"/>
+    <text x="472" y="619">NEWS</text>
+  </g>
+
+  <!-- 3D Perspective Wireframe Grid -->
+  <g stroke="#504c84" stroke-width="2" opacity="0.65">
+    <line x1="520" y1="520" x2="-100" y2="720"/>
+    <line x1="520" y1="520" x2="120" y2="720"/>
+    <line x1="520" y1="520" x2="340" y2="720"/>
+    <line x1="520" y1="520" x2="560" y2="720"/>
+    <line x1="520" y1="520" x2="780" y2="720"/>
+    <line x1="520" y1="520" x2="1000" y2="720"/>
+    <line x1="520" y1="520" x2="1220" y2="720"/>
+    <line x1="520" y1="520" x2="1440" y2="720"/>
+    <line x1="0" y1="556" x2="1280" y2="556"/>
+    <line x1="0" y1="592" x2="1280" y2="592"/>
+    <line x1="0" y1="632" x2="1280" y2="632"/>
+    <line x1="0" y1="676" x2="1280" y2="676"/>
+    <line x1="0" y1="708" x2="1280" y2="708"/>
+  </g>
+
+  <!-- Divider Bevel Line at y=520 -->
+  <line x1="0" y1="520" x2="1280" y2="520" stroke="#08163a" stroke-width="2"/>
+  <line x1="0" y1="522" x2="1280" y2="522" stroke="#7394cd" stroke-width="2.5"/>
+  <line x1="0" y1="524" x2="1280" y2="524" stroke="#261c52" stroke-width="1.5"/>
+
+  <!-- Giant 3D Metallic Slanted 'ASN' Logo -->
+  <g transform="translate(185, 686) skewX(-10) scale(1.12, 1)">
+    <!-- 3D Extruded Navy Block Shadow -->
+    <text x="-10" y="12" font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="162" fill="#101452">ASN</text>
+    <text x="-7"  y="9"  font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="162" fill="#182068">ASN</text>
+    <text x="-4"  y="5"  font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="162" fill="#222e88">ASN</text>
+    <!-- Front Metallic Blue-Chrome Face -->
+    <text x="0"   y="0"  font-family="Arial Black, Arial, Helvetica, sans-serif" font-weight="900" font-size="162" fill="url(#asnChrome)" stroke="#e8eeff" stroke-width="2">ASN</text>
+  </g>
+
+  <!-- Right Side Stacked Promo Text -->
+  <g font-family="Arial, Helvetica, sans-serif" font-weight="900" fill="#e8e8f2" filter="url(#topShadow)" text-anchor="middle">
+    <text x="795" y="582" font-size="46" letter-spacing="3" transform="scale(1.14, 1)">YOUR MAIN</text>
+    <text x="795" y="638" font-size="46" letter-spacing="3" transform="scale(1.14, 1)">ATTRACTION</text>
+    <text x="760" y="684" font-size="30" letter-spacing="7" fill="#dadce8" transform="scale(1.2, 1)">CABLE 10</text>
+  </g>
+
+  <!-- Subtle VHS bottom head-switching line shimmer -->
+  <rect x="80" y="716" width="420" height="2" fill="#461858" opacity="0.8"/>
+  <rect x="640" y="717" width="510" height="2" fill="#1c3862" opacity="0.8"/>
+
+  <!-- Global CRT Scanline Overlay -->
+  <rect x="0" y="0" width="1280" height="720" fill="url(#scanlines)"/>
+</svg>

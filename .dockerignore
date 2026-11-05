@@ -5,4 +5,5 @@ venv/
 .git/
 .DS_Store
 tmp/
-*.png
+data/
+screenshots/
