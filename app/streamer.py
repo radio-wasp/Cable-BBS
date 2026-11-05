@@ -9,6 +9,7 @@ from typing import Generator, Optional
 
 from app import config
 from app.renderer import renderer
+from app.settings_store import settings_store
 
 logger = logging.getLogger("cable-bulletin.streamer")
 
@@ -48,6 +49,14 @@ class HLSStreamManager:
         self._running = False
         self._terminate_proc()
 
+    def restart_encoder(self) -> None:
+        """
+        Restart the active FFmpeg encoder process so new audio mode / radio preset
+        changes from the Admin Portal take effect immediately.
+        """
+        logger.info("Restarting FFmpeg encoder to apply new audio settings...")
+        self._terminate_proc()
+
     def _clean_hls_dir(self) -> None:
         for pattern in ("*.ts", "*.m3u8", "*.tmp"):
             for path in glob.glob(os.path.join(config.HLS_DIR, pattern)):
@@ -61,19 +70,23 @@ class HLSStreamManager:
         seg_pattern = os.path.join(config.HLS_DIR, "seg_%05d.ts")
         m3u8_path = os.path.join(config.HLS_DIR, "stream.m3u8")
 
+        audio_cfg = settings_store.get_active_audio()
+        audio_mode = audio_cfg.get("audio_mode", "hum")
+        stream_url = audio_cfg.get("active_radio_url", "").strip()
+
         cmd = [
             "ffmpeg",
             "-y",
             "-hide_banner",
             "-loglevel",
             "warning",
-            # Video input: raw 8-bit greyscale frames from stdin
+            # Video input: raw 24-bit RGB colour frames from stdin
             "-thread_queue_size",
             "512",
             "-f",
             "rawvideo",
             "-pix_fmt",
-            "gray",
+            "rgb24",
             "-s",
             f"{config.WIDTH}x{config.HEIGHT}",
             "-r",
@@ -82,25 +95,23 @@ class HLSStreamManager:
             "pipe:0",
         ]
 
-        # Audio input selection
+        # Audio input selection based on Admin Portal settings
         audio_filters = []
-        if config.AUDIO_MODE == "stream" and config.AUDIO_STREAM_URL:
+        if audio_mode == "stream" and stream_url:
             cmd.extend([
                 "-thread_queue_size", "512",
                 "-reconnect", "1",
                 "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "5",
-                "-i", config.AUDIO_STREAM_URL,
+                "-i", stream_url,
             ])
-        elif config.AUDIO_MODE == "hum":
-            # Subtle 60Hz vintage CRT transformer hum in stereo
+        elif audio_mode == "hum":
             cmd.extend([
                 "-f", "lavfi",
                 "-i", "sine=frequency=60:sample_rate=44100",
             ])
             audio_filters.append("volume=0.015")
         else:
-            # Pure silent stereo audio stream (ensures all HLS/IPTV players play smoothly)
             cmd.extend([
                 "-f", "lavfi",
                 "-i", "anullsrc=r=44100:cl=stereo",
@@ -176,7 +187,7 @@ class HLSStreamManager:
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
-                    bufsize=config.WIDTH * config.HEIGHT * 2,
+                    bufsize=config.WIDTH * config.HEIGHT * 3 * 2,
                 )
             except Exception as exc:
                 self._last_error = str(exc)
@@ -184,7 +195,6 @@ class HLSStreamManager:
                 time.sleep(3)
                 continue
 
-            # Drain stderr in a helper thread so pipe never blocks
             stderr_thread = threading.Thread(
                 target=self._log_stderr, args=(self._proc,), daemon=True
             )
@@ -207,13 +217,12 @@ class HLSStreamManager:
                     if sleep_dur > 0:
                         time.sleep(sleep_dur)
                     else:
-                        # If we fell behind by more than 0.25s, reset pacing clock
                         if sleep_dur < -0.25:
                             next_frame_time = time.monotonic()
             except (BrokenPipeError, OSError) as exc:
                 if self._running:
                     self._last_error = f"FFmpeg pipe closed: {exc}"
-                    logger.warning(self._last_error)
+                    logger.debug(self._last_error)
             except Exception as exc:
                 self._last_error = f"Render loop error: {exc}"
                 logger.exception("Unexpected error in HLS render loop")
@@ -221,7 +230,7 @@ class HLSStreamManager:
                 self._terminate_proc()
 
             if self._running:
-                time.sleep(1.0)
+                time.sleep(0.5)
 
     def _log_stderr(self, proc: subprocess.Popen) -> None:
         if not proc.stderr:
@@ -239,27 +248,22 @@ class HLSStreamManager:
         return os.path.exists(m3u8_path) and os.path.getsize(m3u8_path) > 0
 
     def get_status(self) -> dict:
+        audio_cfg = settings_store.get_active_audio()
         return {
             "running": self._running and (self._proc is not None and self._proc.poll() is None),
             "hls_ready": self.is_ready(),
             "frames_rendered": self._frames_rendered,
             "resolution": f"{config.WIDTH}x{config.HEIGHT}",
             "fps": config.FPS,
-            "audio_mode": config.AUDIO_MODE,
+            "audio": audio_cfg,
             "uptime_seconds": int(time.time() - self._started_at) if self._started_at else 0,
             "last_error": self._last_error,
         }
 
     def iter_live_mpegts(self) -> Generator[bytes, None, None]:
-        """
-        Streams continuous MPEG-TS bytes by following newly written HLS .ts segments.
-        Allows IPTV clients that prefer /live.ts over /hls/stream.m3u8 to share the
-        exact same background FFmpeg encode with zero extra CPU overhead.
-        """
         seen_segments = set()
         m3u8_path = os.path.join(config.HLS_DIR, "stream.m3u8")
 
-        # Wait up to 10s for initial playlist
         for _ in range(40):
             if os.path.exists(m3u8_path):
                 break
@@ -271,7 +275,6 @@ class HLSStreamManager:
                     with open(m3u8_path, "r", encoding="utf-8") as f:
                         lines = [ln.strip() for ln in f.readlines()]
                     seg_files = [ln for ln in lines if ln.endswith(".ts")]
-                    # If first iteration, only send the latest 2 segments
                     if not seen_segments and len(seg_files) > 2:
                         for old_seg in seg_files[:-2]:
                             seen_segments.add(old_seg)
@@ -288,7 +291,6 @@ class HLSStreamManager:
                                     if not chunk:
                                         break
                                     yield chunk
-                    # Bound seen_segments set size
                     if len(seen_segments) > 100:
                         seen_segments = set(seg_files)
             except GeneratorExit:

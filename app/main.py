@@ -3,9 +3,10 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional
 from xml.sax.saxutils import escape
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Body, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
 from fastapi.templating import Jinja2Templates
@@ -13,6 +14,7 @@ from fastapi.templating import Jinja2Templates
 from app import config
 from app.renderer import renderer
 from app.rss_fetcher import feed_manager
+from app.settings_store import settings_store
 from app.streamer import stream_manager
 
 logging.basicConfig(
@@ -24,7 +26,7 @@ logger = logging.getLogger("cable-bulletin.main")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Starting Vintage Cable TV Bulletin Board (CBC & CNN -> Greyscale HLS)...")
+    logger.info("Starting Vintage Cable TV Bulletin Board (HLS)...")
     feed_manager.start()
     stream_manager.start()
     yield
@@ -35,17 +37,16 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Vintage Cable TV Bulletin Board (HLS)",
-    description="Greyscale 1980s Cable TV Character Generator pulling CBC & CNN RSS feeds into an HLS stream",
-    version="1.0.0",
+    description="ASN / Cable 10 style Character Generator with configurable RSS feeds & Radio Station Presets",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
-# Enable CORS so external HLS players (hls.js, web players, IPTV frontends) can fetch .m3u8 and .ts segments
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=False,
-    allow_methods=["GET", "HEAD", "POST", "OPTIONS"],
+    allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -68,20 +69,19 @@ def _get_base_url(request: Request) -> str:
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
     base_url = _get_base_url(request)
+    disp = settings_store.get_display()
     return templates.TemplateResponse(
         request=request,
         name="index.html",
         context={
-            "channel_number": config.CHANNEL_NUMBER,
-            "channel_name": config.CHANNEL_NAME,
-            "station_id": config.STATION_ID,
+            "channel_number": disp.get("channel_number", config.CHANNEL_NUMBER),
+            "channel_name": disp.get("channel_name", config.CHANNEL_NAME),
             "base_url": base_url,
             "hls_url": f"{base_url}/hls/stream.m3u8",
             "m3u_url": f"{base_url}/playlist.m3u",
             "epg_url": f"{base_url}/epg.xml",
             "ts_url": f"{base_url}/live.ts",
-            "status": stream_manager.get_status(),
-            "feed_status": feed_manager.get_status(),
+            "max_feeds": config.MAX_RSS_FEEDS,
         },
     )
 
@@ -110,7 +110,6 @@ async def get_hls_manifest():
 
 @app.get("/stream.m3u8")
 async def get_root_hls_manifest():
-    """Root alias for /hls/stream.m3u8 with segment paths rewritten to /hls/seg_*.ts."""
     m3u8_path = await _wait_for_m3u8()
     with open(m3u8_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -142,7 +141,6 @@ async def get_hls_segment(segment_name: str):
 @app.get("/live.ts")
 @app.get("/stream")
 async def get_live_mpegts():
-    """Continuous MPEG-TS live stream endpoint for IPTV tuners."""
     return StreamingResponse(
         stream_manager.iter_live_mpegts(),
         media_type="video/mp2t",
@@ -152,28 +150,27 @@ async def get_live_mpegts():
 
 @app.get("/playlist.m3u")
 async def get_m3u_playlist(request: Request):
-    """Standard M3U IPTV playlist pointing to the HLS stream."""
     base_url = _get_base_url(request)
-    ch_id = f"cable-bulletin-{config.CHANNEL_NUMBER}"
+    disp = settings_store.get_display()
+    chno = disp.get("channel_number", config.CHANNEL_NUMBER)
+    name = disp.get("channel_name", config.CHANNEL_NAME)
+    ch_id = f"cable-bulletin-{chno}"
     m3u_content = (
-        "#EXTM3U url-tvg=\"{base}/epg.xml\"\n"
-        "#EXTINF:-1 tvg-id=\"{ch_id}\" tvg-chno=\"{chno}\" tvg-name=\"{name}\" "
-        "tvg-logo=\"{base}/preview.png\" group-title=\"News & Bulletin Boards\",{name}\n"
-        "{base}/hls/stream.m3u8\n"
-    ).format(
-        base=base_url,
-        ch_id=ch_id,
-        chno=config.CHANNEL_NUMBER,
-        name=config.CHANNEL_NAME,
+        f'#EXTM3U url-tvg="{base_url}/epg.xml"\n'
+        f'#EXTINF:-1 tvg-id="{ch_id}" tvg-chno="{chno}" tvg-name="{name}" '
+        f'tvg-logo="{base_url}/preview.png" group-title="Bulletin Boards",{name}\n'
+        f"{base_url}/hls/stream.m3u8\n"
     )
     return Response(content=m3u_content, media_type="audio/x-mpegurl")
 
 
 @app.get("/epg.xml")
 async def get_epg_xml(request: Request):
-    """Standard XMLTV EPG guide for IPTV / Dispatcharr / Jellyfin integration."""
     base_url = _get_base_url(request)
-    ch_id = f"cable-bulletin-{config.CHANNEL_NUMBER}"
+    disp = settings_store.get_display()
+    chno = disp.get("channel_number", config.CHANNEL_NUMBER)
+    name = disp.get("channel_name", config.CHANNEL_NAME)
+    ch_id = f"cable-bulletin-{chno}"
     now = datetime.now(timezone.utc)
     start_base = now.replace(minute=0, second=0, microsecond=0) - timedelta(hours=1)
 
@@ -181,13 +178,12 @@ async def get_epg_xml(request: Request):
         '<?xml version="1.0" encoding="UTF-8"?>',
         '<tv generator-info-name="CableBulletinHLS">',
         f'  <channel id="{escape(ch_id)}">',
-        f'    <display-name>{escape(config.CHANNEL_NAME)}</display-name>',
-        f'    <display-name>{escape(config.CHANNEL_NUMBER)}</display-name>',
+        f'    <display-name>{escape(name)}</display-name>',
+        f'    <display-name>{escape(chno)}</display-name>',
         f'    <icon src="{escape(base_url)}/preview.png" />',
         '  </channel>',
     ]
 
-    # Generate 24 one-hour blocks so EPG guides are always populated
     for h in range(26):
         slot_start = start_base + timedelta(hours=h)
         slot_end = slot_start + timedelta(hours=1)
@@ -195,9 +191,9 @@ async def get_epg_xml(request: Request):
         e_str = slot_end.strftime("%Y%m%d%H%M%S +0000")
         lines.extend([
             f'  <programme start="{s_str}" stop="{e_str}" channel="{escape(ch_id)}">',
-            f'    <title lang="en">{escape(config.CHANNEL_NAME)} - CBC &amp; CNN Wire</title>',
-            '    <desc lang="en">Continuous 24-hour vintage greyscale cable TV character generator '
-            'displaying live headlines and dispatches from CBC News and CNN RSS feeds.</desc>',
+            f'    <title lang="en">{escape(name)}</title>',
+            '    <desc lang="en">Continuous 24-hour vintage cable TV character generator '
+            'bulletin board with custom RSS news feeds and background radio.</desc>',
             '    <category lang="en">News</category>',
             '  </programme>',
         ])
@@ -208,10 +204,13 @@ async def get_epg_xml(request: Request):
 
 @app.get("/preview.png")
 async def get_preview_png():
-    """Render and return an instant greyscale PNG snapshot of the current bulletin frame."""
     png_bytes = renderer.render_png_bytes()
     return Response(content=png_bytes, media_type="image/png", headers=NO_CACHE_HEADERS)
 
+
+# =====================================================================
+# ADMIN PORTAL REST API
+# =====================================================================
 
 @app.get("/api/status")
 async def api_status():
@@ -219,18 +218,18 @@ async def api_status():
     return {
         "stream": stream_manager.get_status(),
         "feeds": feed_manager.get_status(),
+        "settings": settings_store.get_all(),
+        "active_audio": settings_store.get_active_audio(),
         "sample_headlines": [
             {
                 "source": item.source,
-                "category": item.category,
                 "wire_code": item.wire_code,
                 "title": item.title,
-                "summary": item.summary,
+                "broadcast_copy": item.broadcast_copy,
                 "published": item.published,
             }
             for item in playlist
-            if not item.is_index
-        ][:16],
+        ][:20],
     }
 
 
@@ -238,6 +237,137 @@ async def api_status():
 async def api_refresh():
     feed_status = await asyncio.to_thread(feed_manager.refresh_now)
     return {"ok": True, "feeds": feed_status}
+
+
+# --- RSS Feeds Management (Up to 5 feeds) ---
+
+@app.post("/api/feeds")
+async def api_add_feed(payload: Dict[str, Any] = Body(...)):
+    try:
+        new_feed = settings_store.add_rss_feed(
+            name=str(payload.get("name", "")),
+            url=str(payload.get("url", "")),
+            enabled=bool(payload.get("enabled", True)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    feed_status = await asyncio.to_thread(feed_manager.refresh_now)
+    return {"ok": True, "feed": new_feed, "feeds_status": feed_status}
+
+
+@app.put("/api/feeds")
+async def api_replace_feeds(payload: Dict[str, Any] = Body(...)):
+    feeds = payload.get("rss_feeds", [])
+    if not isinstance(feeds, list):
+        raise HTTPException(status_code=400, detail="rss_feeds must be a list")
+    try:
+        saved = settings_store.set_rss_feeds(feeds)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    feed_status = await asyncio.to_thread(feed_manager.refresh_now)
+    return {"ok": True, "rss_feeds": saved, "feeds_status": feed_status}
+
+
+@app.patch("/api/feeds/{feed_id}")
+async def api_toggle_feed(feed_id: str, payload: Dict[str, Any] = Body(...)):
+    updated = settings_store.toggle_rss_feed(feed_id, bool(payload.get("enabled", True)))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    feed_status = await asyncio.to_thread(feed_manager.refresh_now)
+    return {"ok": True, "feed": updated, "feeds_status": feed_status}
+
+
+@app.delete("/api/feeds/{feed_id}")
+async def api_delete_feed(feed_id: str):
+    removed = settings_store.delete_rss_feed(feed_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+    feed_status = await asyncio.to_thread(feed_manager.refresh_now)
+    return {"ok": True, "feeds_status": feed_status}
+
+
+# --- Radio Station Presets & Audio Control ---
+
+@app.post("/api/radio/presets")
+async def api_add_radio_preset(payload: Dict[str, Any] = Body(...)):
+    activate = bool(payload.get("activate", True))
+    try:
+        preset = settings_store.add_radio_preset(
+            name=str(payload.get("name", "")),
+            url=str(payload.get("url", "")),
+            activate=activate,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if activate:
+        stream_manager.restart_encoder()
+    return {
+        "ok": True,
+        "preset": preset,
+        "radio_presets": settings_store.get_radio_presets(),
+        "active_audio": settings_store.get_active_audio(),
+    }
+
+
+@app.put("/api/radio/presets/{preset_id}")
+async def api_update_radio_preset(preset_id: str, payload: Dict[str, Any] = Body(...)):
+    try:
+        updated = settings_store.update_radio_preset(
+            preset_id=preset_id,
+            name=str(payload.get("name", "")),
+            url=str(payload.get("url", "")),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    if not updated:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    active = settings_store.get_active_audio()
+    if active.get("active_radio_id") == preset_id and active.get("audio_mode") == "stream":
+        stream_manager.restart_encoder()
+    return {
+        "ok": True,
+        "preset": updated,
+        "radio_presets": settings_store.get_radio_presets(),
+        "active_audio": active,
+    }
+
+
+@app.delete("/api/radio/presets/{preset_id}")
+async def api_delete_radio_preset(preset_id: str):
+    prev_active = settings_store.get_active_audio().get("active_radio_id")
+    removed = settings_store.delete_radio_preset(preset_id)
+    if not removed:
+        raise HTTPException(status_code=404, detail="Preset not found")
+    if prev_active == preset_id:
+        stream_manager.restart_encoder()
+    return {
+        "ok": True,
+        "radio_presets": settings_store.get_radio_presets(),
+        "active_audio": settings_store.get_active_audio(),
+    }
+
+
+@app.post("/api/radio/select")
+async def api_select_radio(payload: Dict[str, Any] = Body(...)):
+    audio_mode = str(payload.get("audio_mode", "stream"))
+    active_radio_id = payload.get("active_radio_id")
+    try:
+        active = settings_store.set_audio_selection(audio_mode, active_radio_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    stream_manager.restart_encoder()
+    return {"ok": True, "active_audio": active}
+
+
+# --- Display & Banner Branding ---
+
+@app.put("/api/display")
+async def api_update_display(payload: Dict[str, Any] = Body(...)):
+    prev_prefix = settings_store.get_display().get("show_source_prefix", False)
+    updated = settings_store.update_display(payload)
+    if updated.get("show_source_prefix", False) != prev_prefix:
+        await asyncio.to_thread(feed_manager.refresh_now)
+    return {"ok": True, "display": updated}
 
 
 @app.get("/health")

@@ -1,43 +1,58 @@
 # Vintage Cable TV Bulletin Board (`cable-bulletin-hls`) 📺
 
-A lightweight, self-contained Docker container that recreates a **1980s monochrome Cable TV Character Generator & Community Bulletin Board**. It pulls live RSS news feeds from **CBC News** and **CNN**, renders them in **pure greyscale** with authentic CRT scanlines, typewriter text reveal, and a continuous scrolling wire ticker, and outputs a live **HLS stream** (`.m3u8` + `.ts` segments) paired with live radio or vintage CRT audio.
+A lightweight, self-contained Docker container that recreates the iconic **ASN / Cable 10 (Atlantic Satellite Network)** vintage Cable TV Character Generator & Community Bulletin Board in **full colour**, outputting a live **HLS stream** (`.m3u8` + `.ts` segments) with live background radio.
 
-Unlike browser-capture streamers, `cable-bulletin-hls` does **not** use Chromium or Puppeteer. Frames are rendered directly in 8-bit greyscale (`L` mode) using Python's Pillow library and piped straight into FFmpeg, keeping CPU and memory usage minimal for 24/7 operation on Unraid, Docker hosts, or home servers.
+All **RSS news feeds (up to 5)**, **radio station presets**, and **on-screen banner graphics** are controlled directly through the built-in **Admin Portal** and persisted to `/app/data/settings.json`.
+
+Unlike browser-capture streamers, `cable-bulletin-hls` does **not** use Chromium or Puppeteer. Frames are rendered directly in 24-bit RGB using Python's Pillow library and piped straight into FFmpeg (`rgb24` -> `yuv420p` H.264), keeping CPU and memory usage minimal for 24/7 operation on Unraid, Docker hosts, or home servers.
 
 ---
 
-## Screen Layout & Visual Features
+## Screen Layout (ASN / Cable 10 Reference Style)
 
 ```text
 +-------------------------------------------------------------------------+
-| [CH 03]  CABLETEXT BULLETIN                      WED NOV 04 06:54:00 PM |
-+-------------------------------------------------------------------------+
-| [ CBC NEWS ] // TOP STORIES   [CBC-101]                   PAGE 01 OF 28 |
-+-------------------------------------------------------------------------+
-| +                                                                     + |
-|   HEADLINE APPEARS HERE IN BOLD MONOSPACE TELETYPE                      |
-|   UP TO THREE LINES HIGH                                                |
-|   ===================================================================   |
-|   SOURCE: CBC NEWS   //   FILED: NOV 04 18:30   //   REF: CBC-101       |
+|   Thu Nov 5, 2026                                             3:05 pm   |
++=========================================================================+
 |                                                                         |
-|   DISPATCH SUMMARY BODY TEXT TYPES ONTO THE SCREEN CHARACTER BY         |
-|   CHARACTER WITH A BLINKING TERMINAL CURSOR AT THE END OF THE           |
-|   BULLETIN DISPATCH █                                                   |
+|      PRIME MINISTER PAUL MARTIN                                         |
+|   TOLD HIS CAUCUS THAT HE'S                                             |
+|   PROUD OF WHAT THE LIBERAL                                             |
+|   GOVERNMENT HAS ACCOMPLISHED IN                                        |
+|   THE LAST 17 MONTHS.                                                   |
 |                                                                         |
-|   TELETYPE TERMINAL // CATV-03 WIRE SERVICE          [██████████░░░░]   |
-| +                                                                     + |
-+-------------------------------------------------------------------------+
-| [ CBC / CNN WIRE ] /// [CBC] HEADLINE 1 /// [CNN] HEADLINE 2 /// ...    |
++=========================================================================+
+|              ////       ///        YOUR MAIN                            |
+|            ASN                     ATTRACTION                           |
+|          ////       ///             CABLE 10                            |
 +-------------------------------------------------------------------------+
 ```
 
-- **Pure Greyscale Broadcast Output**: Rendered natively in 8-bit greyscale (`gray` -> `yuv420p` monochrome H.264) for universal hardware decoding across browsers, Apple TV, Android TV, VLC, Jellyfin, and Dispatcharr.
-- **Interleaved CBC & CNN Wire**: Automatically fetches, cleans, and alternates stories between **CBC News** (Top Stories, World, Canada) and **CNN** (Top Stories, World, Latest).
-- **Periodic Wire Index Card (`WIRE INDEX`)**: Every `N` stories (default `6`), displays a 5-item tabular headline rundown summarizing upcoming dispatches.
-- **Teletype Reveal & Blinking Cursor**: Each card rapidly types onto the screen over the first `1.6s` with a leading block cursor (`█`), then holds for reading while the terminal cursor blinks at the end of the dispatch.
-- **Continuous Bottom Crawl**: Smoothly scrolls combined CBC and CNN headlines along the bottom of the screen.
-- **Authentic CRT Processing**: Toggleable horizontal scanline attenuation, CRT bezel/corner vignette darkening, and subtle analog RF snow/grain shimmer.
-- **Community Access Radio Audio**: Pair the visual bulletin board with any live Icecast/MP3/AAC radio stream (e.g., local FM radio), a subtle 60 Hz CRT transformer hum, or a silent audio track.
+1. **Top Band (Date & Clock Bar)**:
+   - Gunmetal-grey bar (`#60605e`) with a 3D beveled lower edge.
+   - Left-aligned Date (`Tue Nov 29, 2005` format) and right-aligned 12-hour Time (`0:08 am` format) in bold sans-serif with heavy drop shadows.
+2. **Middle Band (Bulletin Copy Field)**:
+   - Deep broadcast royal-blue field (`#0c3a80`) with CRT scanlines.
+   - Displays one concise 4-to-6 line **ALL-CAPS** news paragraph at a time in a wide **bold slab-serif typewriter font** (`CourierPrime-Bold` / `FreeMonoBold`) in pale ice-white (`#d6e2f6`) with the **first line indented by 3 spaces** and a deep navy drop shadow.
+3. **Bottom Band (ASN / Cable 10 Graphic Promo Banner)**:
+   - Rich violet-to-indigo background gradient (`#381070` -> `#180e40`) with a 3D perspective wireframe grid, faint angled `NEWS` watermark blocks, and subtle bottom-edge VHS chroma head-switching noise.
+   - Giant 3D extruded blue-chrome metallic block logo on the left (`ASN` by default) and stacked wide-tracked promo text on the right (`YOUR MAIN` / `ATTRACTION` / `CABLE 10`)—all customizable in the Admin Portal.
+
+---
+
+## Admin Portal Features (`http://<host>:8080/`)
+
+- **Custom RSS Feeds (Up to 5 Feeds)**:
+  - Add, enable/disable, or delete up to **5 custom RSS or Atom feeds** directly from the web UI.
+  - Enabled feeds are automatically fetched, sanitized into broadcast-wire paragraphs, and interleaved round-robin onto the bulletin board.
+- **Radio Station Presets & Live Tuner**:
+  - Save multiple internet radio streams (MP3, AAC, Icecast, Leanstream, Shoutcast) as named presets.
+  - Click **TUNE IN** next to any preset to switch the live HLS stream's background audio on the fly without restarting the container.
+  - Switch between **Live Radio Stream** (`stream`), **60 Hz CRT Hum** (`hum`), or **Silent / Mute** (`silent`) at any time.
+- **Banner & CRT Customizer**:
+  - Edit the 3D Left Banner Logo (`ASN`), Right Banner Lines 1–3 (`YOUR MAIN`, `ATTRACTION`, `CABLE 10`), page hold duration, typewriter reveal speed, and CRT scanline/noise/vignette effects live.
+- **Persistent Storage**:
+  - All Admin Portal settings are saved to `/app/data/settings.json` (mounted to `./data` in `docker-compose.yml`).
 
 ---
 
@@ -54,18 +69,23 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data
     environment:
       - PORT=8080
+      - DATA_DIR=/app/data
       - TZ=America/Halifax
-      - CHANNEL_NUMBER=03
-      - CHANNEL_NAME=CABLETEXT BULLETIN
-      - STATION_ID=CATV-03 WIRE SERVICE
+      - CHANNEL_NUMBER=10
+      - CHANNEL_NAME=CABLE 10 BULLETIN
+      - BANNER_LOGO=ASN
+      - BANNER_LINE_1=YOUR MAIN
+      - BANNER_LINE_2=ATTRACTION
+      - BANNER_LINE_3=CABLE 10
       - WIDTH=1280
       - HEIGHT=720
       - FPS=24
       - PAGE_DURATION=12
-      - TYPEWRITER_DURATION=1.6
-      - TICKER_SPEED=110
+      - TYPEWRITER_DURATION=1.2
       - SCANLINES=true
       - CRT_NOISE=true
       - CRT_VIGNETTE=true
@@ -74,50 +94,27 @@ services:
       - REFRESH_INTERVAL_MINUTES=10
 ```
 
-Build and start the container:
+Build and start:
 
 ```bash
 docker compose up -d --build
 ```
 
-Then open **`http://localhost:8080`** in your browser to view the live greyscale HLS monitor and active wire queue.
+Open **`http://localhost:8080`** to access the Admin Portal, manage your RSS feeds and radio presets, and watch the live HLS broadcast.
 
 ### Option 2: Docker CLI
 
 ```bash
-# Build the image
 docker build -t cable-bulletin-hls:latest .
 
-# Run with a live background radio stream
 docker run -d \
   --name cable-bulletin-hls \
   --restart unless-stopped \
   -p 8080:8080 \
+  -v $(pwd)/data:/app/data \
   -e TZ=America/Halifax \
-  -e CHANNEL_NUMBER=03 \
-  -e CHANNEL_NAME="CABLETEXT BULLETIN" \
-  -e AUDIO_MODE=stream \
-  -e AUDIO_STREAM_URL="https://chi-master3-entry1.leanstream-hd.com:2113/CKULFM" \
   cable-bulletin-hls:latest
 ```
-
----
-
-## Stream & API Endpoints
-
-| Path | Format | Description |
-| :--- | :--- | :--- |
-| `/` | `text/html` | Retro greyscale Web UI with embedded `hls.js` player, frame monitor, and live dispatch queue |
-| `/hls/stream.m3u8` | `application/vnd.apple.mpegurl` | **Primary HLS stream manifest** (`.m3u8`) |
-| `/stream.m3u8` | `application/vnd.apple.mpegurl` | Root alias for `/hls/stream.m3u8` |
-| `/hls/seg_XXXXX.ts` | `video/mp2t` | Individual HLS transport stream segments |
-| `/live.ts` *(or `/stream`)* | `video/mp2t` | Continuous **MPEG-TS** HTTP stream (shares the same FFmpeg encode with zero extra CPU load) |
-| `/playlist.m3u` | `audio/x-mpegurl` | Standard **#EXTM3U** playlist for IPTV clients |
-| `/epg.xml` | `application/xml` | Standard **XMLTV EPG** program guide |
-| `/preview.png` | `image/png` | Instant greyscale PNG snapshot of the current bulletin frame (also used as channel icon) |
-| `/api/status` | `application/json` | JSON telemetry for encoder state, feed counts, and active headlines |
-| `/api/refresh` | `application/json` | `POST` endpoint to trigger an immediate RSS feed refresh |
-| `/health` | `application/json` | Container healthcheck endpoint |
 
 ---
 
@@ -138,64 +135,60 @@ http://<server-ip>:8080/hls/stream.m3u8
 
 ---
 
-## Audio Modes (`AUDIO_MODE`)
+## Stream & API Endpoints
 
-Many HLS and IPTV clients require an audio stream inside the `.ts` container. You can choose between three modes:
-
-1. **`AUDIO_MODE=stream`**:
-   Plays an external internet radio stream (Icecast, Shoutcast, MP3, AAC, HLS audio) defined in `AUDIO_STREAM_URL` with automatic reconnect enabled:
-   ```yaml
-   - AUDIO_MODE=stream
-   - AUDIO_STREAM_URL=https://chi-master3-entry1.leanstream-hd.com:2113/CKULFM
-   ```
-2. **`AUDIO_MODE=hum`**:
-   Generates a quiet, low-volume (`volume=0.015`) 60 Hz sine wave via FFmpeg `lavfi` to emulate an analog CRT / modulator hum.
-3. **`AUDIO_MODE=silent`**:
-   Generates a zero-volume stereo AAC track (`anullsrc`).
+| Path | Description |
+| :--- | :--- |
+| `/` | **Admin Portal** & live full-colour HLS broadcast monitor |
+| `/hls/stream.m3u8` | **Primary HLS stream manifest** (`.m3u8`) |
+| `/stream.m3u8` | Root alias for `/hls/stream.m3u8` |
+| `/live.ts` *(or `/stream`)* | Continuous **MPEG-TS** HTTP stream (`video/mp2t`) |
+| `/playlist.m3u` | **M3U Playlist** for Dispatcharr, Jellyfin, Plex, TiviMate, or VLC |
+| `/epg.xml` | **XMLTV EPG** guide data |
+| `/preview.png` | Instant full-colour PNG snapshot of the current bulletin frame |
+| `GET /api/status` | Full JSON status (encoder state, feed counts, saved settings, active headlines) |
+| `POST /api/feeds` | Add a new RSS feed (`{name, url, enabled}`) — max 5 feeds |
+| `PUT /api/feeds` | Replace the RSS feeds list (`{rss_feeds: [...]}`) — max 5 feeds |
+| `PATCH /api/feeds/{id}` | Enable or disable an RSS feed (`{enabled}`) |
+| `DELETE /api/feeds/{id}` | Delete an RSS feed |
+| `POST /api/radio/presets` | Add a radio station preset (`{name, url, activate}`) |
+| `PUT /api/radio/presets/{id}` | Update a radio station preset (`{name, url}`) |
+| `POST /api/radio/select` | Switch active radio preset or audio mode (`{audio_mode, active_radio_id}`) |
+| `DELETE /api/radio/presets/{id}` | Delete a radio station preset |
+| `PUT /api/display` | Update banner text and CRT display settings |
+| `POST /api/refresh` | Trigger an immediate RSS refresh across all enabled feeds |
+| `GET /health` | Container healthcheck endpoint |
 
 ---
 
-## Environment Variables Reference
+## Environment Variables (Initial Defaults)
+
+Environment variables seed the initial defaults when `/app/data/settings.json` is first created. Once saved via the Admin Portal, changes in `/app/data/settings.json` take precedence:
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
-| `PORT` | `8080` | HTTP server port inside the container |
-| `TZ` | `UTC` | Local timezone for the broadcast clock (e.g. `America/Halifax`, `America/Toronto`) |
-| `CHANNEL_NUMBER` | `03` | Channel badge displayed in the top-left header (`CH 03`) |
-| `CHANNEL_NAME` | `CABLETEXT BULLETIN` | Main broadcast header banner title |
-| `STATION_ID` | `CATV-03 WIRE SERVICE` | Station identifier shown in the card footer and scrolling ticker |
-| `WIDTH` | `1280` | Output video width in pixels |
-| `HEIGHT` | `720` | Output video height in pixels (fonts and borders scale automatically) |
+| `PORT` | `8080` | HTTP server & Admin Portal port |
+| `DATA_DIR` | `/app/data` | Directory where `settings.json` is persisted |
+| `TZ` | `UTC` | Local timezone for the top broadcast clock (e.g. `America/Halifax`) |
+| `CHANNEL_NUMBER` | `10` | Channel number used in M3U/EPG metadata |
+| `CHANNEL_NAME` | `CABLE 10 BULLETIN` | Channel name used in M3U/EPG metadata and portal header |
+| `BANNER_LOGO` | `ASN` | Initial 3D metallic logo on the left of the bottom banner |
+| `BANNER_LINE_1` | `YOUR MAIN` | Initial right-side banner line 1 |
+| `BANNER_LINE_2` | `ATTRACTION` | Initial right-side banner line 2 |
+| `BANNER_LINE_3` | `CABLE 10` | Initial right-side banner line 3 |
+| `SHOW_SOURCE_PREFIX` | `false` | Prefix story text with `[FEED NAME]` |
+| `WIDTH` | `1280` | Output video width |
+| `HEIGHT` | `720` | Output video height |
 | `FPS` | `24` | Video frame rate |
-| `VIDEO_BITRATE` | `2200k` | Target H.264 video bitrate |
-| `HLS_TIME` | `2` | Target duration (seconds) of each `.ts` HLS segment |
-| `HLS_LIST_SIZE` | `8` | Number of segments kept in the rolling `.m3u8` manifest |
-| `PAGE_DURATION` | `12` | Seconds each news bulletin card remains on screen |
-| `TYPEWRITER_DURATION` | `1.6` | Seconds to teletype the headline and body onto the card |
-| `TICKER_SPEED` | `110` | Bottom news ticker scroll speed in pixels per second |
-| `INDEX_CARD_EVERY` | `6` | Insert a `WIRE INDEX` 5-headline summary card every `N` stories (`0` to disable) |
+| `VIDEO_BITRATE` | `2200k` | Target H.264 bitrate |
+| `PAGE_DURATION` | `12` | Default seconds per bulletin story |
+| `TYPEWRITER_DURATION` | `1.2` | Default seconds for typewriter reveal (`0` for instant page flips) |
 | `SCANLINES` | `true` | Enable horizontal CRT scanlines |
-| `CRT_NOISE` | `true` | Enable subtle analog RF static grain shimmer |
-| `CRT_VIGNETTE` | `true` | Enable CRT corner darkening vignette |
-| `TIME_FORMAT_12H` | `true` | `true` for 12-hour AM/PM clock; `false` for 24-hour clock |
-| `AUDIO_MODE` | `hum` | `stream`, `hum`, or `silent` |
-| `AUDIO_STREAM_URL` | *(empty)* | Audio stream URL when `AUDIO_MODE=stream` |
-| `REFRESH_INTERVAL_MINUTES` | `10` | Interval in minutes between background CBC & CNN RSS fetches |
-| `MAX_ITEMS_PER_SOURCE` | `15` | Maximum deduplicated stories kept per news organization |
-| `CBC_FEEDS` | *(Top, World, Canada)* | Comma-separated list of CBC RSS URLs |
-| `CNN_FEEDS` | *(Top, World, Latest)* | Comma-separated list of CNN RSS URLs |
-
-### Default RSS Feeds
-
-If `CBC_FEEDS` and `CNN_FEEDS` are not overridden, the container pulls from:
-- **CBC**:
-  - `https://www.cbc.ca/webfeed/rss/rss-topstories`
-  - `https://www.cbc.ca/webfeed/rss/rss-world`
-  - `https://www.cbc.ca/webfeed/rss/rss-canada`
-- **CNN**:
-  - `http://rss.cnn.com/rss/cnn_topstories.rss`
-  - `http://rss.cnn.com/rss/cnn_world.rss`
-  - `http://rss.cnn.com/rss/cnn_latest.rss`
+| `CRT_NOISE` | `true` | Enable subtle analog RF grain & bottom VHS chroma shimmer |
+| `CRT_VIGNETTE` | `true` | Enable CRT corner vignette darkening |
+| `AUDIO_MODE` | `stream` | Initial audio mode (`stream`, `hum`, or `silent`) |
+| `AUDIO_STREAM_URL` | `https://...CKULFM` | Initial radio preset URL |
+| `REFRESH_INTERVAL_MINUTES` | `10` | Background RSS refresh interval in minutes |
 
 ---
 
@@ -203,16 +196,17 @@ If `CBC_FEEDS` and `CNN_FEEDS` are not overridden, the container pulls from:
 
 ```text
 cable-bulletin-hls/
-├── Dockerfile               # Python 3.11-slim + FFmpeg + DejaVu/Liberation monospace fonts
-├── docker-compose.yml       # Docker Compose configuration
+├── Dockerfile               # Python 3.11-slim + FFmpeg + CourierPrime/FreeMono/Liberation fonts
+├── docker-compose.yml       # Docker Compose configuration with ./data volume
 ├── requirements.txt         # FastAPI, Uvicorn, Jinja2, Pillow
 ├── README.md                # Documentation
 └── app/
-    ├── config.py            # Environment variable configuration
-    ├── rss_fetcher.py       # CBC & CNN RSS parser, HTML sanitizer, and playlist interleaver
-    ├── renderer.py          # 8-bit greyscale CRT character-generator frame renderer (Pillow)
-    ├── streamer.py          # FFmpeg HLS (.m3u8 + .ts) and MPEG-TS background encoder manager
-    ├── main.py              # FastAPI HTTP server, HLS/M3U/EPG routes, and status API
+    ├── config.py            # Environment variable defaults
+    ├── settings_store.py    # Persistent JSON store (/app/data/settings.json) for feeds, radio presets & banner
+    ├── rss_fetcher.py       # Multi-feed RSS/Atom parser (up to 5 feeds) & broadcast wire formatter
+    ├── renderer.py          # 24-bit RGB ASN / Cable 10 3-band CRT frame renderer (Pillow)
+    ├── streamer.py          # FFmpeg HLS (.m3u8 + .ts) & MPEG-TS encoder with live radio switching
+    ├── main.py              # FastAPI server, Admin Portal REST API, and HLS/M3U/EPG routes
     └── templates/
-        └── index.html       # Retro greyscale Web UI with live hls.js monitor
+        └── index.html       # Admin Portal Web UI with live HLS monitor, feed manager & radio tuner
 ```

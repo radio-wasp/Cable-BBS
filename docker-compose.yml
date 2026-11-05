@@ -6,18 +6,23 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-8080}:8080"
+    volumes:
+      - ./data:/app/data
     environment:
       - PORT=8080
+      - DATA_DIR=/app/data
       - TZ=America/Halifax
-      - CHANNEL_NUMBER=03
-      - CHANNEL_NAME=CABLETEXT BULLETIN
-      - STATION_ID=CATV-03 WIRE SERVICE
+      - CHANNEL_NUMBER=10
+      - CHANNEL_NAME=CABLE 10 BULLETIN
+      - BANNER_LOGO=ASN
+      - BANNER_LINE_1=YOUR MAIN
+      - BANNER_LINE_2=ATTRACTION
+      - BANNER_LINE_3=CABLE 10
       - WIDTH=1280
       - HEIGHT=720
       - FPS=24
       - PAGE_DURATION=12
-      - TYPEWRITER_DURATION=1.6
-      - TICKER_SPEED=110
+      - TYPEWRITER_DURATION=1.2
       - SCANLINES=true
       - CRT_NOISE=true
       - CRT_VIGNETTE=true
