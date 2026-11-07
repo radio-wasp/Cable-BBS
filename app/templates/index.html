@@ -43,12 +43,19 @@
       margin-bottom: 18px;
       font-weight: bold;
       letter-spacing: 0.04em;
+      gap: 12px;
     }
     .header-bar .badge {
       background: #111;
       color: #f0f0f0;
       padding: 4px 10px;
       margin-right: 10px;
+    }
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     .grid-2 {
       display: grid;
@@ -60,7 +67,6 @@
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 18px;
-      margin-bottom: 18px;
     }
     @media (max-width: 980px) {
       .grid-2, .grid-admin {
@@ -131,7 +137,7 @@
       background: var(--border-bright);
       color: #0a0a0a;
     }
-    input[type="text"], input[type="url"], input[type="number"] {
+    input[type="text"], input[type="url"], input[type="number"], input[type="password"], select {
       width: 100%;
       background: #0b0b0b;
       color: var(--text);
@@ -140,7 +146,7 @@
       font-family: inherit;
       font-size: 0.85rem;
     }
-    input:focus {
+    input:focus, select:focus {
       outline: none;
       border-color: var(--border-bright);
     }
@@ -229,10 +235,70 @@
       font-size: 0.83rem;
       word-break: break-all;
     }
+
+    /* Settings Tabs Navigation */
+    .tabs-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 14px;
+      border-bottom: 2px solid var(--border);
+      padding-bottom: 10px;
+    }
+    .tab-btn {
+      padding: 8px 16px;
+      font-size: 0.86rem;
+      border: 2px solid var(--border);
+      background: #181818;
+    }
+    .tab-btn.active-tab {
+      background: var(--border-bright);
+      color: #0c0c0c;
+      border-color: #ffffff;
+    }
+    .tab-panel {
+      display: none;
+      margin-bottom: 18px;
+    }
+    .tab-panel.active-panel {
+      display: block;
+    }
+
     .display-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+    .res-presets-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
       gap: 10px;
+      margin-bottom: 16px;
+    }
+    .preset-card {
+      background: var(--panel-alt);
+      border: 1px solid var(--border);
+      padding: 10px 12px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .preset-card:hover {
+      border-color: var(--accent);
+      background: #202020;
+    }
+    .preset-card.active-preset {
+      border: 2px solid var(--accent);
+      background: #242424;
+    }
+    .preset-card .p-title {
+      font-weight: bold;
+      font-size: 0.88rem;
+      color: #fff;
+    }
+    .preset-card .p-desc {
+      font-size: 0.76rem;
+      color: var(--muted);
+      margin-top: 4px;
     }
     @media (max-width: 780px) {
       .display-grid {
@@ -269,6 +335,36 @@
     .wire-table th {
       background: #242424;
     }
+
+    /* Login Prompt Overlay */
+    #loginOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(6, 6, 8, 0.94);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 2000;
+      padding: 20px;
+    }
+    .login-modal {
+      width: 100%;
+      max-width: 440px;
+      background: var(--panel);
+      border: 2px solid var(--border-bright);
+      padding: 20px;
+      box-shadow: 0 0 0 4px #000, 0 16px 40px rgba(0, 0, 0, 0.85);
+    }
+    .login-error {
+      background: #3a1212;
+      border: 1px solid #ff6b6b;
+      color: #ffd6d6;
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      margin-bottom: 12px;
+      display: none;
+    }
+
     #toastBanner {
       position: fixed;
       bottom: 20px;
@@ -279,18 +375,52 @@
       padding: 10px 16px;
       font-weight: bold;
       display: none;
-      z-index: 999;
+      z-index: 3000;
     }
   </style>
 </head>
 <body>
+  <!-- Vintage Cable Terminal Login Prompt -->
+  <div id="loginOverlay" style="display: {{ 'none' if is_authenticated else 'flex' }};">
+    <div class="login-modal">
+      <div class="box-title" style="margin: -20px -20px 16px -20px;">
+        <span>[ CABLE 10 TERMINAL // LOGIN REQUIRED ]</span>
+        <span>AUTH</span>
+      </div>
+      <p style="font-size: 0.82rem; color: var(--muted); margin-top: 0; margin-bottom: 14px;">
+        ENTER OPERATOR CREDENTIALS TO ACCESS THE BULLETIN BOARD ADMIN PORTAL.
+      </p>
+      <div id="loginErrorBox" class="login-error">INVALID USERNAME OR PASSWORD</div>
+      <form onsubmit="handleLogin(event)">
+        <div style="margin-bottom: 12px;">
+          <label for="loginUsername">Operator Username</label>
+          <input type="text" id="loginUsername" value="admin" autocomplete="username" required />
+        </div>
+        <div style="margin-bottom: 16px;">
+          <label for="loginPassword">Operator Password</label>
+          <input type="password" id="loginPassword" placeholder="••••••••" autocomplete="current-password" required />
+        </div>
+        <button type="submit" style="width: 100%; padding: 10px;" class="active-btn">
+          AUTHORIZE TERMINAL ACCESS
+        </button>
+      </form>
+    </div>
+  </div>
+
   <div class="container">
     <div class="header-bar">
       <div>
         <span class="badge" id="hdrBadge">CH {{ channel_number }}</span>
         <span id="hdrTitle">{{ channel_name }} // ADMIN PORTAL</span>
       </div>
-      <div id="audioStatusHeader">AUDIO: INITIALIZING...</div>
+      <div class="header-right">
+        <span id="resStatusHeader">1280x720 @ 24fps</span>
+        <span>|</span>
+        <span id="audioStatusHeader">AUDIO: INITIALIZING...</span>
+        <button onclick="handleLogout()" style="background:#111; color:#fff; border-color:#111; padding:4px 10px;">
+          LOGOUT
+        </button>
+      </div>
     </div>
 
     <!-- Top Row: Live Monitor & Stream Endpoints -->
@@ -300,7 +430,7 @@
           <span>[ LIVE BROADCAST MONITOR ]</span>
           <span id="streamStateBadge">CONNECTING...</span>
         </div>
-        <div class="crt-frame">
+        <div class="crt-frame" id="crtFrameBox">
           <video id="hlsVideo" controls autoplay muted playsinline poster="/preview.png"></video>
           <img id="snapshotPreview" src="/preview.png" alt="Live Frame Snapshot" />
         </div>
@@ -350,122 +480,242 @@
       </div>
     </div>
 
-    <!-- Middle Row: RSS Feeds Manager (Up to 5) & Radio Station Presets -->
-    <div class="grid-admin">
-      <!-- 1. Custom RSS Feeds (Max 5) -->
-      <div class="box">
-        <div class="box-title">
-          <span>[ RSS NEWS FEEDS (MAX {{ max_feeds }}) ]</span>
-          <span id="feedCountBadge">0 / {{ max_feeds }} FEEDS</span>
+    <!-- Settings Tabs Navigation Bar -->
+    <div class="tabs-bar">
+      <button class="tab-btn active-tab" id="tabBtnFeeds" onclick="switchTab('feeds')">
+        1. RSS FEEDS &amp; RADIO TUNER
+      </button>
+      <button class="tab-btn" id="tabBtnResolution" onclick="switchTab('resolution')">
+        2. RESOLUTION &amp; ENCODING
+      </button>
+      <button class="tab-btn" id="tabBtnBanner" onclick="switchTab('banner')">
+        3. BANNER &amp; CRT DISPLAY
+      </button>
+      <button class="tab-btn" id="tabBtnSecurity" onclick="switchTab('security')">
+        4. LOGIN &amp; SECURITY
+      </button>
+    </div>
+
+    <!-- TAB 1: RSS Feeds (Max 5) & Radio Station Presets -->
+    <div class="tab-panel active-panel" id="tabPanelFeeds">
+      <div class="grid-admin">
+        <!-- Custom RSS Feeds (Max 5) -->
+        <div class="box">
+          <div class="box-title">
+            <span>[ RSS NEWS FEEDS (MAX {{ max_feeds }}) ]</span>
+            <span id="feedCountBadge">0 / {{ max_feeds }} FEEDS</span>
+          </div>
+
+          <div id="feedsList" class="item-list"></div>
+
+          <form id="addFeedForm" onsubmit="handleAddFeed(event)" style="margin-top: 14px; border-top: 1px solid #333; padding-top: 12px;">
+            <div class="form-row">
+              <div>
+                <label for="newFeedName">Feed Label</label>
+                <input type="text" id="newFeedName" placeholder="e.g. Local News" maxlength="40" required />
+              </div>
+              <div>
+                <label for="newFeedUrl">RSS / Atom Feed URL</label>
+                <input type="url" id="newFeedUrl" placeholder="https://example.com/rss.xml" required />
+              </div>
+              <div>
+                <button type="submit" id="btnAddFeed">+ ADD FEED</button>
+              </div>
+            </div>
+          </form>
         </div>
 
-        <div id="feedsList" class="item-list"></div>
+        <!-- Radio Station Presets & Audio Control -->
+        <div class="box">
+          <div class="box-title">
+            <span>[ RADIO STATION PRESETS &amp; AUDIO ]</span>
+            <span id="activeAudioBadge">MODE: STREAM</span>
+          </div>
 
-        <form id="addFeedForm" onsubmit="handleAddFeed(event)" style="margin-top: 14px; border-top: 1px solid #333; padding-top: 12px;">
-          <div class="form-row">
-            <div>
-              <label for="newFeedName">Feed Label</label>
-              <input type="text" id="newFeedName" placeholder="e.g. Local News" maxlength="40" required />
-            </div>
-            <div>
-              <label for="newFeedUrl">RSS / Atom Feed URL</label>
-              <input type="url" id="newFeedUrl" placeholder="https://example.com/rss.xml" required />
-            </div>
-            <div>
-              <button type="submit" id="btnAddFeed">+ ADD FEED</button>
+          <div style="margin-bottom: 12px;">
+            <label>Audio Output Mode</label>
+            <div class="controls-row" style="margin-top: 4px;">
+              <button id="modeBtnStream" onclick="setAudioMode('stream')">LIVE RADIO STREAM</button>
+              <button id="modeBtnHum" onclick="setAudioMode('hum')">60Hz CRT HUM</button>
+              <button id="modeBtnSilent" onclick="setAudioMode('silent')">SILENT / MUTE</button>
             </div>
           </div>
-        </form>
-      </div>
 
-      <!-- 2. Radio Station Presets & Audio Control -->
-      <div class="box">
-        <div class="box-title">
-          <span>[ RADIO STATION PRESETS &amp; AUDIO ]</span>
-          <span id="activeAudioBadge">MODE: STREAM</span>
+          <label>Saved Radio Station Presets</label>
+          <div id="radioPresetsList" class="item-list" style="margin-top: 6px;"></div>
+
+          <form id="addRadioForm" onsubmit="handleAddRadioPreset(event)" style="margin-top: 14px; border-top: 1px solid #333; padding-top: 12px;">
+            <div class="form-row">
+              <div>
+                <label for="newRadioName">Station Name</label>
+                <input type="text" id="newRadioName" placeholder="e.g. CKUL-FM 96.5" maxlength="50" required />
+              </div>
+              <div>
+                <label for="newRadioUrl">Stream URL (MP3 / AAC / Icecast)</label>
+                <input type="url" id="newRadioUrl" placeholder="https://..." required />
+              </div>
+              <div>
+                <button type="submit">+ SAVE PRESET</button>
+              </div>
+            </div>
+          </form>
         </div>
-
-        <div style="margin-bottom: 12px;">
-          <label>Audio Output Mode</label>
-          <div class="controls-row" style="margin-top: 4px;">
-            <button id="modeBtnStream" onclick="setAudioMode('stream')">LIVE RADIO STREAM</button>
-            <button id="modeBtnHum" onclick="setAudioMode('hum')">60Hz CRT HUM</button>
-            <button id="modeBtnSilent" onclick="setAudioMode('silent')">SILENT / MUTE</button>
-          </div>
-        </div>
-
-        <label>Saved Radio Station Presets</label>
-        <div id="radioPresetsList" class="item-list" style="margin-top: 6px;"></div>
-
-        <form id="addRadioForm" onsubmit="handleAddRadioPreset(event)" style="margin-top: 14px; border-top: 1px solid #333; padding-top: 12px;">
-          <div class="form-row">
-            <div>
-              <label for="newRadioName">Station Name</label>
-              <input type="text" id="newRadioName" placeholder="e.g. CKUL-FM 96.5" maxlength="50" required />
-            </div>
-            <div>
-              <label for="newRadioUrl">Stream URL (MP3 / AAC / Icecast)</label>
-              <input type="url" id="newRadioUrl" placeholder="https://..." required />
-            </div>
-            <div>
-              <button type="submit">+ SAVE PRESET</button>
-            </div>
-          </div>
-        </form>
       </div>
     </div>
 
-    <!-- Banner & CRT Layout Customization (ASN Cable 10 Reference Style) -->
-    <div class="box" style="margin-bottom: 18px;">
-      <div class="box-title">
-        <span>[ BOTTOM BANNER &amp; CRT DISPLAY SETTINGS (ASN CABLE 10 LAYOUT) ]</span>
-        <button onclick="saveDisplaySettings()">SAVE BANNER &amp; DISPLAY</button>
-      </div>
+    <!-- TAB 2: Resolution, Framerate & Bitrate Settings -->
+    <div class="tab-panel" id="tabPanelResolution">
+      <div class="box">
+        <div class="box-title">
+          <span>[ STREAM RESOLUTION, FRAMERATE &amp; BITRATE ]</span>
+          <button class="active-btn" onclick="saveVideoSettings()">APPLY RESOLUTION &amp; RESTART ENCODER</button>
+        </div>
 
-      <div class="display-grid">
-        <div>
-          <label for="dispLogo">3D Left Banner Logo</label>
-          <input type="text" id="dispLogo" placeholder="ASN" maxlength="10" />
+        <label style="margin-bottom: 8px;">Quick Resolution &amp; Cloud Cost Presets</label>
+        <div class="res-presets-grid">
+          <div class="preset-card" onclick="applyVideoPreset(1920, 1080, 24, '3500k')">
+            <div class="p-title">1080p Full HD (1920×1080)</div>
+            <div class="p-desc">24 fps • 3500k bitrate • Best for local Unraid / LAN servers</div>
+          </div>
+          <div class="preset-card" onclick="applyVideoPreset(1280, 720, 24, '2200k')">
+            <div class="p-title">720p HD Default (1280×720)</div>
+            <div class="p-desc">24 fps • 2200k bitrate • Standard HD IPTV broadcast</div>
+          </div>
+          <div class="preset-card" onclick="applyVideoPreset(960, 540, 12, '800k')">
+            <div class="p-title">540p Railway Saver (960×540)</div>
+            <div class="p-desc">12 fps • 800k bitrate • Fits $5/mo Railway Hobby Plan</div>
+          </div>
+          <div class="preset-card" onclick="applyVideoPreset(854, 480, 15, '900k')">
+            <div class="p-title">480p SD Widescreen (854×480)</div>
+            <div class="p-desc">15 fps • 900k bitrate • Lightweight 16:9 SD cable</div>
+          </div>
+          <div class="preset-card" onclick="applyVideoPreset(640, 480, 15, '800k')">
+            <div class="p-title">480i Classic 4:3 CRT (640×480)</div>
+            <div class="p-desc">15 fps • 800k bitrate • Authentic 4:3 NTSC television</div>
+          </div>
         </div>
-        <div>
-          <label for="dispLine1">Right Banner Line 1</label>
-          <input type="text" id="dispLine1" placeholder="YOUR MAIN" maxlength="24" />
+
+        <div class="display-grid" style="grid-template-columns: repeat(4, 1fr);">
+          <div>
+            <label for="vidWidth">Width (px)</label>
+            <input type="number" id="vidWidth" min="320" max="1920" step="2" value="1280" oninput="updateResourceEstimate()" />
+          </div>
+          <div>
+            <label for="vidHeight">Height (px)</label>
+            <input type="number" id="vidHeight" min="240" max="1080" step="2" value="720" oninput="updateResourceEstimate()" />
+          </div>
+          <div>
+            <label for="vidFps">Frame Rate (FPS)</label>
+            <select id="vidFps" onchange="updateResourceEstimate()">
+              <option value="10">10 fps (Ultra-Low CPU)</option>
+              <option value="12">12 fps (Railway Saver)</option>
+              <option value="15">15 fps (SD Cable)</option>
+              <option value="24" selected>24 fps (Broadcast Standard)</option>
+              <option value="30">30 fps (NTSC Full Rate)</option>
+            </select>
+          </div>
+          <div>
+            <label for="vidBitrate">H.264 Video Bitrate</label>
+            <select id="vidBitrate" onchange="updateResourceEstimate()">
+              <option value="600k">600 kbps (Low Bandwidth)</option>
+              <option value="800k">800 kbps (SD / Cloud Saver)</option>
+              <option value="1200k">1200 kbps (Medium)</option>
+              <option value="1800k">1800 kbps (720p Crisp)</option>
+              <option value="2200k" selected>2200 kbps (720p High)</option>
+              <option value="3500k">3500 kbps (1080p High)</option>
+            </select>
+          </div>
         </div>
-        <div>
-          <label for="dispLine2">Right Banner Line 2</label>
-          <input type="text" id="dispLine2" placeholder="ATTRACTION" maxlength="24" />
-        </div>
-        <div>
-          <label for="dispLine3">Right Banner Line 3 (Sub)</label>
-          <input type="text" id="dispLine3" placeholder="CABLE 10" maxlength="24" />
-        </div>
-        <div>
-          <label for="dispPageDur">Page Hold Duration (Sec)</label>
-          <input type="number" id="dispPageDur" min="4" max="120" step="1" />
-        </div>
-        <div>
-          <label for="dispTwDur">Typewriter Reveal (Sec, 0=Instant)</label>
-          <input type="number" id="dispTwDur" min="0" max="10" step="0.2" />
+
+        <div class="list-card" style="margin-top: 14px;">
+          <div class="list-info">
+            <div class="list-title">ESTIMATED STREAM BANDWIDTH &amp; CLOUD FOOTPRINT</div>
+            <div class="list-sub" id="resourceEstimateText">
+              Calculating stream bandwidth...
+            </div>
+          </div>
         </div>
       </div>
+    </div>
 
-      <div class="checks-row">
-        <label class="check-label">
-          <input type="checkbox" id="chkPrefix" />
-          Prefix Story Text with [FEED NAME]
-        </label>
-        <label class="check-label">
-          <input type="checkbox" id="chkScanlines" />
-          CRT Horizontal Scanlines
-        </label>
-        <label class="check-label">
-          <input type="checkbox" id="chkNoise" />
-          Analog RF Grain &amp; Bottom VHS Shimmer
-        </label>
-        <label class="check-label">
-          <input type="checkbox" id="chkVignette" />
-          CRT Corner Vignette
-        </label>
+    <!-- TAB 3: Banner & CRT Layout Customization -->
+    <div class="tab-panel" id="tabPanelBanner">
+      <div class="box">
+        <div class="box-title">
+          <span>[ BOTTOM BANNER &amp; CRT DISPLAY SETTINGS (ASN CABLE 10 LAYOUT) ]</span>
+          <button class="active-btn" onclick="saveDisplaySettings()">SAVE BANNER &amp; DISPLAY</button>
+        </div>
+
+        <div class="display-grid">
+          <div>
+            <label for="dispLogo">3D Left Banner Logo</label>
+            <input type="text" id="dispLogo" placeholder="ASN" maxlength="10" />
+          </div>
+          <div>
+            <label for="dispLine1">Right Banner Line 1</label>
+            <input type="text" id="dispLine1" placeholder="YOUR MAIN" maxlength="24" />
+          </div>
+          <div>
+            <label for="dispLine2">Right Banner Line 2</label>
+            <input type="text" id="dispLine2" placeholder="ATTRACTION" maxlength="24" />
+          </div>
+          <div>
+            <label for="dispLine3">Right Banner Line 3 (Sub)</label>
+            <input type="text" id="dispLine3" placeholder="CABLE 10" maxlength="24" />
+          </div>
+          <div>
+            <label for="dispPageDur">Page Hold Duration (Sec)</label>
+            <input type="number" id="dispPageDur" min="4" max="120" step="1" />
+          </div>
+          <div>
+            <label for="dispTwDur">Typewriter Reveal (Sec, 0=Instant)</label>
+            <input type="number" id="dispTwDur" min="0" max="10" step="0.2" />
+          </div>
+        </div>
+
+        <div class="checks-row">
+          <label class="check-label">
+            <input type="checkbox" id="chkPrefix" />
+            Prefix Story Text with [FEED NAME]
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="chkScanlines" />
+            CRT Horizontal Scanlines
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="chkNoise" />
+            Analog RF Grain &amp; Bottom VHS Shimmer
+          </label>
+          <label class="check-label">
+            <input type="checkbox" id="chkVignette" />
+            CRT Corner Vignette
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 4: Login & Security Settings -->
+    <div class="tab-panel" id="tabPanelSecurity">
+      <div class="box" style="max-width: 640px;">
+        <div class="box-title">
+          <span>[ OPERATOR LOGIN CREDENTIALS ]</span>
+          <span id="currentAdminUserLabel">USER: {{ authenticated_user or 'admin' }}</span>
+        </div>
+        <form onsubmit="handleUpdateCredentials(event)">
+          <div style="margin-bottom: 12px;">
+            <label for="secNewUsername">Admin Username</label>
+            <input type="text" id="secNewUsername" value="{{ authenticated_user or 'admin' }}" required />
+          </div>
+          <div style="margin-bottom: 12px;">
+            <label for="secCurrentPassword">Current Password</label>
+            <input type="password" id="secCurrentPassword" placeholder="Enter current password" required />
+          </div>
+          <div style="margin-bottom: 14px;">
+            <label for="secNewPassword">New Password (Min 4 chars)</label>
+            <input type="password" id="secNewPassword" placeholder="Enter new password" minlength="4" required />
+          </div>
+          <button type="submit" class="active-btn">UPDATE OPERATOR CREDENTIALS</button>
+        </form>
       </div>
     </div>
 
@@ -497,24 +747,50 @@
     let hlsInstance = null;
     let snapshotTimer = null;
     let displayFormDirty = false;
+    let videoFormDirty = false;
     let currentAudioState = { audio_mode: 'stream', active_radio_id: null };
 
     const videoEl = document.getElementById('hlsVideo');
     const snapEl = document.getElementById('snapshotPreview');
     const badgeEl = document.getElementById('streamStateBadge');
+    const loginOverlay = document.getElementById('loginOverlay');
 
     ['dispLogo', 'dispLine1', 'dispLine2', 'dispLine3', 'dispPageDur', 'dispTwDur',
      'chkPrefix', 'chkScanlines', 'chkNoise', 'chkVignette'].forEach(id => {
       const el = document.getElementById(id);
-      if (el) el.addEventListener('change', () => { displayFormDirty = true; });
-      if (el) el.addEventListener('input', () => { displayFormDirty = true; });
+      if (el) {
+        el.addEventListener('change', () => { displayFormDirty = true; });
+        el.addEventListener('input', () => { displayFormDirty = true; });
+      }
     });
+
+    ['vidWidth', 'vidHeight', 'vidFps', 'vidBitrate'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.addEventListener('change', () => { videoFormDirty = true; });
+        el.addEventListener('input', () => { videoFormDirty = true; });
+      }
+    });
+
+    function switchTab(tabName) {
+      const map = {
+        feeds: ['tabBtnFeeds', 'tabPanelFeeds'],
+        resolution: ['tabBtnResolution', 'tabPanelResolution'],
+        banner: ['tabBtnBanner', 'tabPanelBanner'],
+        security: ['tabBtnSecurity', 'tabPanelSecurity']
+      };
+      Object.keys(map).forEach(k => {
+        const [btnId, panelId] = map[k];
+        document.getElementById(btnId).classList.toggle('active-tab', k === tabName);
+        document.getElementById(panelId).classList.toggle('active-panel', k === tabName);
+      });
+    }
 
     function showToast(msg) {
       const t = document.getElementById('toastBanner');
       t.textContent = msg;
       t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 2400);
+      setTimeout(() => { t.style.display = 'none'; }, 2500);
     }
 
     function escapeHtml(str) {
@@ -523,6 +799,65 @@
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
+    }
+
+    async function apiFetch(url, options = {}) {
+      const res = await fetch(url, options);
+      if (res.status === 401) {
+        loginOverlay.style.display = 'flex';
+        throw new Error('Unauthorized');
+      }
+      return res;
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const errBox = document.getElementById('loginErrorBox');
+      errBox.style.display = 'none';
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      if (!res.ok) {
+        errBox.style.display = 'block';
+        return;
+      }
+      document.getElementById('loginPassword').value = '';
+      loginOverlay.style.display = 'none';
+      showToast('TERMINAL ACCESS GRANTED');
+      await fetchPortalState();
+    }
+
+    async function handleLogout() {
+      await fetch('/api/auth/logout', { method: 'POST' });
+      loginOverlay.style.display = 'flex';
+      showToast('LOGGED OUT');
+    }
+
+    async function handleUpdateCredentials(e) {
+      e.preventDefault();
+      const new_username = document.getElementById('secNewUsername').value.trim();
+      const current_password = document.getElementById('secCurrentPassword').value;
+      const new_password = document.getElementById('secNewPassword').value;
+
+      const res = await apiFetch('/api/auth/credentials', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ current_password, new_username, new_password })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || 'Failed to update credentials');
+        return;
+      }
+      document.getElementById('secCurrentPassword').value = '';
+      document.getElementById('secNewPassword').value = '';
+      showToast('ADMIN CREDENTIALS UPDATED');
+      await fetchPortalState();
     }
 
     function startHlsPlayer() {
@@ -576,6 +911,55 @@
       snapshotTimer = setInterval(() => {
         snapEl.src = '/preview.png?t=' + Date.now();
       }, 1000);
+    }
+
+    function applyVideoPreset(w, h, fps, bitrate) {
+      document.getElementById('vidWidth').value = w;
+      document.getElementById('vidHeight').value = h;
+      document.getElementById('vidFps').value = String(fps);
+      document.getElementById('vidBitrate').value = bitrate;
+      videoFormDirty = true;
+      updateResourceEstimate();
+    }
+
+    function updateResourceEstimate() {
+      const w = parseInt(document.getElementById('vidWidth').value || '1280', 10);
+      const h = parseInt(document.getElementById('vidHeight').value || '720', 10);
+      const fps = parseInt(document.getElementById('vidFps').value || '24', 10);
+      const brStr = document.getElementById('vidBitrate').value || '2200k';
+      const kbps = parseInt(brStr, 10) + 128; // video + 128k audio
+      const gbPerHour = ((kbps * 3600) / (8 * 1024 * 1024)).toFixed(2);
+      const pixelRateRatio = (w * h * fps) / (1280 * 720 * 24);
+      const estVcpu = Math.max(0.06, (0.32 * pixelRateRatio)).toFixed(2);
+      const estRailwayMo = (1.3 + parseFloat(estVcpu) * 20).toFixed(2);
+
+      document.getElementById('resourceEstimateText').textContent =
+        `Active Profile: ${w}×${h} @ ${fps} fps (${brStr} video + 128k audio)  •  ` +
+        `Outbound Stream: ~${gbPerHour} GB/hr watched  •  ` +
+        `Est. 24/7 Encoder Load: ~${estVcpu} vCPU (~$${estRailwayMo}/mo before Railway $5 credit)`;
+    }
+
+    async function saveVideoSettings() {
+      const payload = {
+        width: parseInt(document.getElementById('vidWidth').value || '1280', 10),
+        height: parseInt(document.getElementById('vidHeight').value || '720', 10),
+        fps: parseInt(document.getElementById('vidFps').value || '24', 10),
+        video_bitrate: document.getElementById('vidBitrate').value || '2200k'
+      };
+      const res = await apiFetch('/api/video', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.detail || 'Failed to update resolution');
+        return;
+      }
+      videoFormDirty = false;
+      showToast(`ENCODER RESTARTING AT ${payload.width}x${payload.height} @ ${payload.fps}fps...`);
+      await fetchPortalState();
+      setTimeout(startHlsPlayer, 2200);
     }
 
     function renderFeedsList(configuredFeeds, feedStats) {
@@ -681,15 +1065,32 @@
       document.getElementById('chkVignette').checked = !!disp.crt_vignette;
     }
 
+    function populateVideoForm(vid) {
+      if (!vid) return;
+      document.getElementById('resStatusHeader').textContent =
+        `${vid.width}x${vid.height} @ ${vid.fps}fps (${vid.video_bitrate})`;
+      if (videoFormDirty) return;
+      document.getElementById('vidWidth').value = vid.width;
+      document.getElementById('vidHeight').value = vid.height;
+      document.getElementById('vidFps').value = String(vid.fps);
+      document.getElementById('vidBitrate').value = vid.video_bitrate;
+      updateResourceEstimate();
+    }
+
     async function fetchPortalState() {
       try {
-        const res = await fetch('/api/status');
+        const res = await apiFetch('/api/status');
         const data = await res.json();
 
         document.getElementById('statPages').textContent = `${data.feeds.total_pages} ACTIVE PAGES`;
+        if (data.settings.admin_username) {
+          document.getElementById('currentAdminUserLabel').textContent = `USER: ${data.settings.admin_username}`;
+          document.getElementById('secNewUsername').value = data.settings.admin_username;
+        }
         renderFeedsList(data.settings.rss_feeds || [], data.feeds.feeds || []);
         renderRadioPresets(data.settings.radio_presets || [], data.active_audio);
         populateDisplayForm(data.settings.display);
+        populateVideoForm(data.settings.video);
 
         const tbody = document.getElementById('wireTableBody');
         if (data.sample_headlines && data.sample_headlines.length > 0) {
@@ -710,7 +1111,7 @@
       const url = document.getElementById('newFeedUrl').value.trim();
       if (!url) return;
 
-      const res = await fetch('/api/feeds', {
+      const res = await apiFetch('/api/feeds', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, url, enabled: true })
@@ -727,7 +1128,7 @@
     }
 
     async function toggleFeed(feedId, enabled) {
-      await fetch(`/api/feeds/${encodeURIComponent(feedId)}`, {
+      await apiFetch(`/api/feeds/${encodeURIComponent(feedId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ enabled })
@@ -737,7 +1138,7 @@
     }
 
     async function deleteFeed(feedId) {
-      await fetch(`/api/feeds/${encodeURIComponent(feedId)}`, { method: 'DELETE' });
+      await apiFetch(`/api/feeds/${encodeURIComponent(feedId)}`, { method: 'DELETE' });
       showToast('RSS FEED REMOVED');
       await fetchPortalState();
     }
@@ -748,7 +1149,7 @@
       const url = document.getElementById('newRadioUrl').value.trim();
       if (!url) return;
 
-      const res = await fetch('/api/radio/presets', {
+      const res = await apiFetch('/api/radio/presets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, url, activate: true })
@@ -766,7 +1167,7 @@
     }
 
     async function selectRadioPreset(presetId) {
-      await fetch('/api/radio/select', {
+      await apiFetch('/api/radio/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio_mode: 'stream', active_radio_id: presetId })
@@ -777,7 +1178,7 @@
     }
 
     async function setAudioMode(mode) {
-      await fetch('/api/radio/select', {
+      await apiFetch('/api/radio/select', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ audio_mode: mode, active_radio_id: currentAudioState.active_radio_id })
@@ -788,7 +1189,7 @@
     }
 
     async function deleteRadioPreset(presetId) {
-      await fetch(`/api/radio/presets/${encodeURIComponent(presetId)}`, { method: 'DELETE' });
+      await apiFetch(`/api/radio/presets/${encodeURIComponent(presetId)}`, { method: 'DELETE' });
       showToast('RADIO PRESET DELETED');
       await fetchPortalState();
     }
@@ -806,7 +1207,7 @@
         crt_noise: document.getElementById('chkNoise').checked,
         crt_vignette: document.getElementById('chkVignette').checked
       };
-      await fetch('/api/display', {
+      await apiFetch('/api/display', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
@@ -821,7 +1222,7 @@
 
     async function triggerRefresh() {
       showToast('REFRESHING RSS FEEDS...');
-      await fetch('/api/refresh', { method: 'POST' });
+      await apiFetch('/api/refresh', { method: 'POST' });
       await fetchPortalState();
       showToast('RSS FEEDS UPDATED');
     }
@@ -831,6 +1232,7 @@
       showToast('COPIED TO CLIPBOARD');
     }
 
+    updateResourceEstimate();
     startHlsPlayer();
     fetchPortalState();
     setInterval(fetchPortalState, 8000);

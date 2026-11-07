@@ -3,12 +3,12 @@ import logging
 import os
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 from xml.sax.saxutils import escape
 
-from fastapi import Body, FastAPI, HTTPException, Request
+from fastapi import Body, Depends, FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 
 from app import config
@@ -37,15 +37,15 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Vintage Cable TV Bulletin Board (HLS)",
-    description="ASN / Cable 10 style Character Generator with configurable RSS feeds & Radio Station Presets",
-    version="2.0.0",
+    description="ASN / Cable 10 style Character Generator with configurable RSS feeds, Radio Presets, Resolution & Admin Auth",
+    version="2.1.0",
     lifespan=lifespan,
 )
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
-    allow_credentials=False,
+    allow_credentials=True,
     allow_methods=["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
@@ -66,10 +66,20 @@ def _get_base_url(request: Request) -> str:
     return f"{scheme}://{host}"
 
 
+def require_admin(request: Request) -> str:
+    token = request.cookies.get(config.SESSION_COOKIE_NAME)
+    username = settings_store.verify_session_token(token)
+    if not username:
+        raise HTTPException(status_code=401, detail="Authentication required.")
+    return username
+
+
 @app.get("/", response_class=HTMLResponse)
 async def index_page(request: Request):
     base_url = _get_base_url(request)
     disp = settings_store.get_display()
+    token = request.cookies.get(config.SESSION_COOKIE_NAME)
+    authenticated_user = settings_store.verify_session_token(token)
     return templates.TemplateResponse(
         request=request,
         name="index.html",
@@ -82,9 +92,15 @@ async def index_page(request: Request):
             "epg_url": f"{base_url}/epg.xml",
             "ts_url": f"{base_url}/live.ts",
             "max_feeds": config.MAX_RSS_FEEDS,
+            "is_authenticated": bool(authenticated_user),
+            "authenticated_user": authenticated_user or "",
         },
     )
 
+
+# =====================================================================
+# PUBLIC STREAMING & IPTV ENDPOINTS (No Login Cookie Required for Tuners)
+# =====================================================================
 
 async def _wait_for_m3u8(timeout_sec: float = 8.0) -> str:
     m3u8_path = os.path.join(config.HLS_DIR, "stream.m3u8")
@@ -208,17 +224,89 @@ async def get_preview_png():
     return Response(content=png_bytes, media_type="image/png", headers=NO_CACHE_HEADERS)
 
 
+@app.get("/health")
+async def health():
+    return {"status": "ok", "hls_ready": stream_manager.is_ready()}
+
+
 # =====================================================================
-# ADMIN PORTAL REST API
+# AUTHENTICATION API
+# =====================================================================
+
+@app.get("/api/auth/status")
+async def api_auth_status(request: Request):
+    token = request.cookies.get(config.SESSION_COOKIE_NAME)
+    username = settings_store.verify_session_token(token)
+    return {"authenticated": bool(username), "username": username}
+
+
+@app.post("/api/auth/login")
+async def api_login(payload: Dict[str, Any] = Body(...)):
+    username = str(payload.get("username", ""))
+    password = str(payload.get("password", ""))
+    if not settings_store.verify_credentials(username, password):
+        raise HTTPException(status_code=401, detail="Invalid username or password.")
+    token = settings_store.create_session_token()
+    resp = JSONResponse({"ok": True, "username": username.strip()})
+    resp.set_cookie(
+        key=config.SESSION_COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite="lax",
+        max_age=86400 * 7,
+        path="/",
+    )
+    return resp
+
+
+@app.post("/api/auth/logout")
+async def api_logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie(key=config.SESSION_COOKIE_NAME, path="/")
+    return resp
+
+
+@app.put("/api/auth/credentials")
+async def api_update_credentials(
+    payload: Dict[str, Any] = Body(...),
+    _user: str = Depends(require_admin),
+):
+    current_password = str(payload.get("current_password", ""))
+    new_username = str(payload.get("new_username", "")).strip()
+    new_password = str(payload.get("new_password", ""))
+
+    if not settings_store.verify_credentials(_user, current_password):
+        raise HTTPException(status_code=400, detail="Current password is incorrect.")
+
+    try:
+        saved_user = settings_store.update_credentials(new_username, new_password)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    new_token = settings_store.create_session_token()
+    resp = JSONResponse({"ok": True, "username": saved_user})
+    resp.set_cookie(
+        key=config.SESSION_COOKIE_NAME,
+        value=new_token,
+        httponly=True,
+        samesite="lax",
+        max_age=86400 * 7,
+        path="/",
+    )
+    return resp
+
+
+# =====================================================================
+# PROTECTED ADMIN PORTAL REST API
 # =====================================================================
 
 @app.get("/api/status")
-async def api_status():
+async def api_status(_user: str = Depends(require_admin)):
     playlist = feed_manager.get_playlist()
     return {
         "stream": stream_manager.get_status(),
         "feeds": feed_manager.get_status(),
-        "settings": settings_store.get_all(),
+        "settings": settings_store.get_public_settings(),
         "active_audio": settings_store.get_active_audio(),
         "sample_headlines": [
             {
@@ -234,7 +322,7 @@ async def api_status():
 
 
 @app.post("/api/refresh")
-async def api_refresh():
+async def api_refresh(_user: str = Depends(require_admin)):
     feed_status = await asyncio.to_thread(feed_manager.refresh_now)
     return {"ok": True, "feeds": feed_status}
 
@@ -242,7 +330,7 @@ async def api_refresh():
 # --- RSS Feeds Management (Up to 5 feeds) ---
 
 @app.post("/api/feeds")
-async def api_add_feed(payload: Dict[str, Any] = Body(...)):
+async def api_add_feed(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     try:
         new_feed = settings_store.add_rss_feed(
             name=str(payload.get("name", "")),
@@ -256,7 +344,7 @@ async def api_add_feed(payload: Dict[str, Any] = Body(...)):
 
 
 @app.put("/api/feeds")
-async def api_replace_feeds(payload: Dict[str, Any] = Body(...)):
+async def api_replace_feeds(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     feeds = payload.get("rss_feeds", [])
     if not isinstance(feeds, list):
         raise HTTPException(status_code=400, detail="rss_feeds must be a list")
@@ -269,7 +357,7 @@ async def api_replace_feeds(payload: Dict[str, Any] = Body(...)):
 
 
 @app.patch("/api/feeds/{feed_id}")
-async def api_toggle_feed(feed_id: str, payload: Dict[str, Any] = Body(...)):
+async def api_toggle_feed(feed_id: str, payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     updated = settings_store.toggle_rss_feed(feed_id, bool(payload.get("enabled", True)))
     if not updated:
         raise HTTPException(status_code=404, detail="Feed not found")
@@ -278,7 +366,7 @@ async def api_toggle_feed(feed_id: str, payload: Dict[str, Any] = Body(...)):
 
 
 @app.delete("/api/feeds/{feed_id}")
-async def api_delete_feed(feed_id: str):
+async def api_delete_feed(feed_id: str, _user: str = Depends(require_admin)):
     removed = settings_store.delete_rss_feed(feed_id)
     if not removed:
         raise HTTPException(status_code=404, detail="Feed not found")
@@ -289,7 +377,7 @@ async def api_delete_feed(feed_id: str):
 # --- Radio Station Presets & Audio Control ---
 
 @app.post("/api/radio/presets")
-async def api_add_radio_preset(payload: Dict[str, Any] = Body(...)):
+async def api_add_radio_preset(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     activate = bool(payload.get("activate", True))
     try:
         preset = settings_store.add_radio_preset(
@@ -310,7 +398,7 @@ async def api_add_radio_preset(payload: Dict[str, Any] = Body(...)):
 
 
 @app.put("/api/radio/presets/{preset_id}")
-async def api_update_radio_preset(preset_id: str, payload: Dict[str, Any] = Body(...)):
+async def api_update_radio_preset(preset_id: str, payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     try:
         updated = settings_store.update_radio_preset(
             preset_id=preset_id,
@@ -333,7 +421,7 @@ async def api_update_radio_preset(preset_id: str, payload: Dict[str, Any] = Body
 
 
 @app.delete("/api/radio/presets/{preset_id}")
-async def api_delete_radio_preset(preset_id: str):
+async def api_delete_radio_preset(preset_id: str, _user: str = Depends(require_admin)):
     prev_active = settings_store.get_active_audio().get("active_radio_id")
     removed = settings_store.delete_radio_preset(preset_id)
     if not removed:
@@ -348,7 +436,7 @@ async def api_delete_radio_preset(preset_id: str):
 
 
 @app.post("/api/radio/select")
-async def api_select_radio(payload: Dict[str, Any] = Body(...)):
+async def api_select_radio(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     audio_mode = str(payload.get("audio_mode", "stream"))
     active_radio_id = payload.get("active_radio_id")
     try:
@@ -359,17 +447,25 @@ async def api_select_radio(payload: Dict[str, Any] = Body(...)):
     return {"ok": True, "active_audio": active}
 
 
+# --- Video Resolution, FPS & Bitrate ---
+
+@app.put("/api/video")
+async def api_update_video(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
+    try:
+        updated = settings_store.update_video(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    renderer.reconfigure(updated["width"], updated["height"])
+    stream_manager.restart_encoder()
+    return {"ok": True, "video": updated}
+
+
 # --- Display & Banner Branding ---
 
 @app.put("/api/display")
-async def api_update_display(payload: Dict[str, Any] = Body(...)):
+async def api_update_display(payload: Dict[str, Any] = Body(...), _user: str = Depends(require_admin)):
     prev_prefix = settings_store.get_display().get("show_source_prefix", False)
     updated = settings_store.update_display(payload)
     if updated.get("show_source_prefix", False) != prev_prefix:
         await asyncio.to_thread(feed_manager.refresh_now)
     return {"ok": True, "display": updated}
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "hls_ready": stream_manager.is_ready()}

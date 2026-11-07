@@ -12,6 +12,11 @@ PORT = int(os.getenv("PORT", "8080"))
 DATA_DIR = os.getenv("DATA_DIR", "/app/data")
 SETTINGS_FILE = os.path.join(DATA_DIR, "settings.json")
 
+# Admin Portal Authentication Defaults
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin").strip()
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "cable10").strip()
+SESSION_COOKIE_NAME = "cable_bulletin_session"
+
 # Default Channel / Banner Branding (ASN Cable 10 reference layout)
 CHANNEL_NUMBER = os.getenv("CHANNEL_NUMBER", "10")
 CHANNEL_NAME = os.getenv("CHANNEL_NAME", "CABLE 10 BULLETIN")
@@ -23,7 +28,7 @@ BANNER_LINE_2 = os.getenv("BANNER_LINE_2", "ATTRACTION")
 BANNER_LINE_3 = os.getenv("BANNER_LINE_3", "CABLE 10")
 SHOW_SOURCE_PREFIX = _env_bool("SHOW_SOURCE_PREFIX", False)
 
-# Video / HLS Settings
+# Default Video / HLS Settings (can be changed live in the Admin Portal Resolution tab)
 WIDTH = int(os.getenv("WIDTH", "1280"))
 HEIGHT = int(os.getenv("HEIGHT", "720"))
 FPS = int(os.getenv("FPS", "24"))
@@ -36,7 +41,7 @@ HLS_LIST_SIZE = int(os.getenv("HLS_LIST_SIZE", "8"))
 PAGE_DURATION = float(os.getenv("PAGE_DURATION", "12.0"))
 TYPEWRITER_DURATION = float(os.getenv("TYPEWRITER_DURATION", "1.2"))
 
-# Visual CRT / Greyscale Aesthetics
+# Visual CRT Aesthetics
 SCANLINES = _env_bool("SCANLINES", True)
 CRT_NOISE = _env_bool("CRT_NOISE", True)
 CRT_VIGNETTE = _env_bool("CRT_VIGNETTE", True)

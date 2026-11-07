@@ -1,20 +1,21 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="860" viewBox="0 0 1280 860">
-  <rect width="1280" height="860" fill="#0c0c0c"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="780" viewBox="0 0 1280 780">
+  <rect width="1280" height="780" fill="#0c0c0c"/>
   <g font-family="'Courier New', Courier, Menlo, monospace" fill="#e8e8e8">
     <!-- Top Header Bar -->
     <rect x="24" y="18" width="1232" height="44" fill="#d8d8d8" stroke="#ffffff" stroke-width="2"/>
     <rect x="36" y="25" width="76" height="30" fill="#111111"/>
     <text x="48" y="45" font-size="16" font-weight="bold" fill="#f0f0f0">CH 10</text>
     <text x="126" y="45" font-size="16" font-weight="bold" fill="#0c0c0c">CABLE 10 BULLETIN // ADMIN PORTAL</text>
-    <text x="1240" y="45" font-size="15" font-weight="bold" fill="#0c0c0c" text-anchor="end">ON AIR RADIO: CKUL-FM (Default Stream)</text>
+    <text x="1146" y="45" font-size="13" font-weight="bold" fill="#0c0c0c" text-anchor="end">1280x720 @ 24fps | ON AIR: CKUL-FM</text>
+    <rect x="1162" y="26" width="80" height="28" fill="#111111"/>
+    <text x="1202" y="44" font-size="12" font-weight="bold" fill="#ffffff" text-anchor="middle">LOGOUT</text>
 
     <!-- Row 1 Left: Live Broadcast Monitor -->
-    <rect x="24" y="76" width="710" height="320" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
+    <rect x="24" y="76" width="710" height="310" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
     <rect x="24" y="76" width="710" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
     <text x="36" y="96" font-size="14" font-weight="bold">[ LIVE BROADCAST MONITOR ]</text>
     <text x="722" y="96" font-size="14" font-weight="bold" text-anchor="end">ON AIR (HLS)</text>
 
-    <!-- Embedded Mini Colour CRT Preview inside Monitor -->
     <g transform="translate(40, 114)">
       <rect x="0" y="0" width="420" height="236" fill="#0c3a80" stroke="#d8d8d8" stroke-width="2"/>
       <rect x="2" y="2" width="416" height="36" fill="#60605e"/>
@@ -33,7 +34,6 @@
       <text x="295" y="226" font-family="Arial, sans-serif" font-weight="bold" font-size="11" fill="#dcdcf0" text-anchor="middle" letter-spacing="2">CABLE 10</text>
     </g>
 
-    <!-- Monitor Buttons on Right of Video -->
     <g transform="translate(476, 114)" font-size="12" font-weight="bold">
       <rect x="0" y="0" width="240" height="32" fill="#d8d8d8" stroke="#ffffff"/>
       <text x="120" y="20" fill="#0c0c0c" text-anchor="middle">HLS STREAM PLAYER</text>
@@ -46,45 +46,59 @@
     </g>
 
     <!-- Row 1 Right: Stream Endpoints -->
-    <rect x="750" y="76" width="506" height="320" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
+    <rect x="750" y="76" width="506" height="310" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
     <rect x="750" y="76" width="506" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
     <text x="762" y="96" font-size="14" font-weight="bold">[ STREAM ENDPOINTS &amp; IPTV LINKS ]</text>
     <text x="1244" y="96" font-size="14" font-weight="bold" text-anchor="end">36 ACTIVE PAGES</text>
 
     <g transform="translate(766, 116)" font-size="12">
-      <rect x="0" y="0" width="474" height="58" fill="#101010" stroke="#454545"/>
+      <rect x="0" y="0" width="474" height="56" fill="#101010" stroke="#454545"/>
       <text x="10" y="18" fill="#9e9e9e" font-size="11">HLS STREAM (.M3U8)</text>
-      <text x="10" y="42" fill="#ffffff" font-weight="bold">http://localhost:8080/hls/stream.m3u8</text>
-      <rect x="406" y="22" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
-      <text x="434" y="38" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
+      <text x="10" y="40" fill="#ffffff" font-weight="bold">http://localhost:8080/hls/stream.m3u8</text>
+      <rect x="406" y="20" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
+      <text x="434" y="36" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
 
-      <rect x="0" y="68" width="474" height="58" fill="#101010" stroke="#454545"/>
-      <text x="10" y="86" fill="#9e9e9e" font-size="11">IPTV / DISPATCHARR M3U PLAYLIST</text>
-      <text x="10" y="110" fill="#ffffff" font-weight="bold">http://localhost:8080/playlist.m3u</text>
-      <rect x="406" y="90" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
-      <text x="434" y="106" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
+      <rect x="0" y="64" width="474" height="56" fill="#101010" stroke="#454545"/>
+      <text x="10" y="82" fill="#9e9e9e" font-size="11">IPTV / DISPATCHARR M3U PLAYLIST</text>
+      <text x="10" y="104" fill="#ffffff" font-weight="bold">http://localhost:8080/playlist.m3u</text>
+      <rect x="406" y="84" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
+      <text x="434" y="100" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
 
-      <rect x="0" y="136" width="474" height="58" fill="#101010" stroke="#454545"/>
-      <text x="10" y="154" fill="#9e9e9e" font-size="11">XMLTV EPG GUIDE</text>
-      <text x="10" y="178" fill="#ffffff" font-weight="bold">http://localhost:8080/epg.xml</text>
-      <rect x="406" y="158" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
-      <text x="434" y="174" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
+      <rect x="0" y="128" width="474" height="56" fill="#101010" stroke="#454545"/>
+      <text x="10" y="146" fill="#9e9e9e" font-size="11">XMLTV EPG GUIDE</text>
+      <text x="10" y="168" fill="#ffffff" font-weight="bold">http://localhost:8080/epg.xml</text>
+      <rect x="406" y="148" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
+      <text x="434" y="164" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
 
-      <rect x="0" y="204" width="474" height="58" fill="#101010" stroke="#454545"/>
-      <text x="10" y="222" fill="#9e9e9e" font-size="11">DIRECT MPEG-TS STREAM (.TS)</text>
-      <text x="10" y="246" fill="#ffffff" font-weight="bold">http://localhost:8080/live.ts</text>
-      <rect x="406" y="226" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
-      <text x="434" y="242" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
+      <rect x="0" y="192" width="474" height="56" fill="#101010" stroke="#454545"/>
+      <text x="10" y="210" fill="#9e9e9e" font-size="11">DIRECT MPEG-TS STREAM (.TS)</text>
+      <text x="10" y="232" fill="#ffffff" font-weight="bold">http://localhost:8080/live.ts</text>
+      <rect x="406" y="212" width="56" height="24" fill="#242424" stroke="#d8d8d8"/>
+      <text x="434" y="228" fill="#e8e8e8" font-weight="bold" text-anchor="middle">COPY</text>
     </g>
 
-    <!-- Row 2 Left: Custom RSS News Feeds (Max 5) -->
-    <rect x="24" y="412" width="606" height="285" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
-    <rect x="24" y="412" width="606" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
-    <text x="36" y="432" font-size="14" font-weight="bold">[ RSS NEWS FEEDS (MAX 5) ]</text>
-    <text x="618" y="432" font-size="14" font-weight="bold" text-anchor="end">3 / 5 FEEDS</text>
+    <!-- Settings Tabs Bar -->
+    <g transform="translate(24, 402)" font-size="13" font-weight="bold">
+      <rect x="0" y="0" width="265" height="34" fill="#d8d8d8" stroke="#ffffff" stroke-width="2"/>
+      <text x="132" y="22" fill="#0c0c0c" text-anchor="middle">1. RSS FEEDS &amp; RADIO TUNER</text>
 
-    <g transform="translate(38, 452)" font-size="12">
-      <!-- Feed 1 -->
+      <rect x="275" y="0" width="265" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="407" y="22" fill="#e8e8e8" text-anchor="middle">2. RESOLUTION &amp; ENCODING</text>
+
+      <rect x="550" y="0" width="255" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="677" y="22" fill="#e8e8e8" text-anchor="middle">3. BANNER &amp; CRT DISPLAY</text>
+
+      <rect x="815" y="0" width="235" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="932" y="22" fill="#e8e8e8" text-anchor="middle">4. LOGIN &amp; SECURITY</text>
+    </g>
+
+    <!-- Tab 1 Content: RSS Feeds & Radio Presets -->
+    <rect x="24" y="450" width="606" height="305" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
+    <rect x="24" y="450" width="606" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
+    <text x="36" y="470" font-size="14" font-weight="bold">[ RSS NEWS FEEDS (MAX 5) ]</text>
+    <text x="618" y="470" font-size="14" font-weight="bold" text-anchor="end">3 / 5 FEEDS</text>
+
+    <g transform="translate(38, 490)" font-size="12">
       <rect x="0" y="0" width="578" height="48" fill="#1d1d1d" stroke="#d8d8d8" stroke-width="1.5"/>
       <text x="14" y="20" font-weight="bold">[x] CBC Top Stories</text>
       <rect x="175" y="7" width="76" height="16" fill="#dadada"/>
@@ -93,7 +107,6 @@
       <rect x="502" y="12" width="64" height="24" fill="#242424" stroke="#d8d8d8"/>
       <text x="534" y="28" fill="#e8e8e8" font-weight="bold" text-anchor="middle">DELETE</text>
 
-      <!-- Feed 2 -->
       <rect x="0" y="56" width="578" height="48" fill="#1d1d1d" stroke="#d8d8d8" stroke-width="1.5"/>
       <text x="14" y="76" font-weight="bold">[x] CNN World Wire</text>
       <rect x="175" y="63" width="76" height="16" fill="#dadada"/>
@@ -102,7 +115,6 @@
       <rect x="502" y="68" width="64" height="24" fill="#242424" stroke="#d8d8d8"/>
       <text x="534" y="84" fill="#e8e8e8" font-weight="bold" text-anchor="middle">DELETE</text>
 
-      <!-- Feed 3 -->
       <rect x="0" y="112" width="578" height="48" fill="#1d1d1d" stroke="#d8d8d8" stroke-width="1.5"/>
       <text x="14" y="132" font-weight="bold">[x] Atlantic Canada News</text>
       <rect x="215" y="119" width="76" height="16" fill="#dadada"/>
@@ -111,27 +123,24 @@
       <rect x="502" y="124" width="64" height="24" fill="#242424" stroke="#d8d8d8"/>
       <text x="534" y="140" fill="#e8e8e8" font-weight="bold" text-anchor="middle">DELETE</text>
 
-      <!-- Add Feed Form -->
-      <text x="0" y="182" fill="#9e9e9e" font-size="11">FEED LABEL</text>
-      <rect x="0" y="188" width="160" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="8" y="208" fill="#777">e.g. Local News</text>
+      <text x="0" y="190" fill="#9e9e9e" font-size="11">FEED LABEL</text>
+      <rect x="0" y="196" width="160" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
+      <text x="8" y="216" fill="#777">e.g. Local News</text>
 
-      <text x="170" y="182" fill="#9e9e9e" font-size="11">RSS / ATOM FEED URL</text>
-      <rect x="170" y="188" width="290" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="178" y="208" fill="#777">https://example.com/rss.xml</text>
+      <text x="170" y="190" fill="#9e9e9e" font-size="11">RSS / ATOM FEED URL</text>
+      <rect x="170" y="196" width="290" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
+      <text x="178" y="216" fill="#777">https://example.com/rss.xml</text>
 
-      <rect x="470" y="188" width="108" height="30" fill="#242424" stroke="#d8d8d8"/>
-      <text x="524" y="208" fill="#e8e8e8" font-weight="bold" text-anchor="middle">+ ADD FEED</text>
+      <rect x="470" y="196" width="108" height="30" fill="#242424" stroke="#d8d8d8"/>
+      <text x="524" y="216" fill="#e8e8e8" font-weight="bold" text-anchor="middle">+ ADD FEED</text>
     </g>
 
-    <!-- Row 2 Right: Radio Station Presets & Audio -->
-    <rect x="650" y="412" width="606" height="285" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
-    <rect x="650" y="412" width="606" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
-    <text x="662" y="432" font-size="14" font-weight="bold">[ RADIO STATION PRESETS &amp; AUDIO ]</text>
-    <text x="1244" y="432" font-size="14" font-weight="bold" text-anchor="end">MODE: STREAM</text>
+    <rect x="650" y="450" width="606" height="305" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
+    <rect x="650" y="450" width="606" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
+    <text x="662" y="470" font-size="14" font-weight="bold">[ RADIO STATION PRESETS &amp; AUDIO ]</text>
+    <text x="1244" y="470" font-size="14" font-weight="bold" text-anchor="end">MODE: STREAM</text>
 
-    <g transform="translate(664, 452)" font-size="12">
-      <!-- Mode selector buttons -->
+    <g transform="translate(664, 490)" font-size="12">
       <rect x="0" y="0" width="168" height="28" fill="#d8d8d8" stroke="#ffffff"/>
       <text x="84" y="18" fill="#0c0c0c" font-weight="bold" text-anchor="middle">LIVE RADIO STREAM</text>
       <rect x="176" y="0" width="140" height="28" fill="#242424" stroke="#d8d8d8"/>
@@ -139,7 +148,6 @@
       <rect x="324" y="0" width="140" height="28" fill="#242424" stroke="#d8d8d8"/>
       <text x="394" y="18" fill="#e8e8e8" font-weight="bold" text-anchor="middle">SILENT / MUTE</text>
 
-      <!-- Preset 1 (Active) -->
       <rect x="0" y="40" width="578" height="52" fill="#1d1d1d" stroke="#d8d8d8" stroke-width="2"/>
       <text x="12" y="60" font-weight="bold">CKUL-FM (Default Stream)</text>
       <rect x="208" y="47" width="54" height="16" fill="#dadada"/>
@@ -150,7 +158,6 @@
       <rect x="502" y="54" width="64" height="24" fill="#242424" stroke="#d8d8d8"/>
       <text x="534" y="70" fill="#e8e8e8" font-weight="bold" text-anchor="middle">DELETE</text>
 
-      <!-- Preset 2 -->
       <rect x="0" y="100" width="578" height="52" fill="#101010" stroke="#454545" stroke-width="1"/>
       <text x="12" y="120" font-weight="bold">CBC Radio One Halifax</text>
       <text x="12" y="140" fill="#9e9e9e" font-size="11">https://cbcradiolive.akamaized.net/hls/live/2041030/ES_R1NS/master.m3u8</text>
@@ -159,52 +166,16 @@
       <rect x="502" y="114" width="64" height="24" fill="#242424" stroke="#d8d8d8"/>
       <text x="534" y="130" fill="#e8e8e8" font-weight="bold" text-anchor="middle">DELETE</text>
 
-      <!-- Add Radio Preset Form -->
-      <text x="0" y="182" fill="#9e9e9e" font-size="11">STATION NAME</text>
-      <rect x="0" y="188" width="160" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="8" y="208" fill="#777">e.g. VOCM 590</text>
+      <text x="0" y="190" fill="#9e9e9e" font-size="11">STATION NAME</text>
+      <rect x="0" y="196" width="160" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
+      <text x="8" y="216" fill="#777">e.g. VOCM 590</text>
 
-      <text x="170" y="182" fill="#9e9e9e" font-size="11">STREAM URL (MP3 / AAC / ICECAST)</text>
-      <rect x="170" y="188" width="275" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="178" y="208" fill="#777">https://...</text>
+      <text x="170" y="190" fill="#9e9e9e" font-size="11">STREAM URL (MP3 / AAC / ICECAST)</text>
+      <rect x="170" y="196" width="275" height="30" fill="#0b0b0b" stroke="#6e6e6e"/>
+      <text x="178" y="216" fill="#777">https://...</text>
 
-      <rect x="455" y="188" width="123" height="30" fill="#242424" stroke="#d8d8d8"/>
-      <text x="516" y="208" fill="#e8e8e8" font-weight="bold" text-anchor="middle">+ SAVE PRESET</text>
-    </g>
-
-    <!-- Row 3: Bottom Banner & CRT Display Settings -->
-    <rect x="24" y="714" width="1232" height="126" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
-    <rect x="24" y="714" width="1232" height="30" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
-    <text x="36" y="734" font-size="14" font-weight="bold">[ BOTTOM BANNER &amp; CRT DISPLAY SETTINGS (ASN CABLE 10 LAYOUT) ]</text>
-    <rect x="1044" y="717" width="204" height="24" fill="#d8d8d8" stroke="#ffffff"/>
-    <text x="1146" y="733" font-size="12" font-weight="bold" fill="#0c0c0c" text-anchor="middle">SAVE BANNER &amp; DISPLAY</text>
-
-    <g transform="translate(38, 756)" font-size="12">
-      <text x="0" y="12" fill="#9e9e9e" font-size="11">3D LEFT BANNER LOGO</text>
-      <rect x="0" y="18" width="175" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="10" y="37" font-weight="bold">ASN</text>
-
-      <text x="195" y="12" fill="#9e9e9e" font-size="11">RIGHT BANNER LINE 1</text>
-      <rect x="195" y="18" width="195" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="205" y="37" font-weight="bold">YOUR MAIN</text>
-
-      <text x="410" y="12" fill="#9e9e9e" font-size="11">RIGHT BANNER LINE 2</text>
-      <rect x="410" y="18" width="195" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="420" y="37" font-weight="bold">ATTRACTION</text>
-
-      <text x="625" y="12" fill="#9e9e9e" font-size="11">RIGHT BANNER LINE 3</text>
-      <rect x="625" y="18" width="195" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="635" y="37" font-weight="bold">CABLE 10</text>
-
-      <text x="840" y="12" fill="#9e9e9e" font-size="11">PAGE HOLD (SEC)</text>
-      <rect x="840" y="18" width="160" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="850" y="37" font-weight="bold">12</text>
-
-      <text x="1020" y="12" fill="#9e9e9e" font-size="11">TYPEWRITER (SEC)</text>
-      <rect x="1020" y="18" width="180" height="28" fill="#0b0b0b" stroke="#6e6e6e"/>
-      <text x="1030" y="37" font-weight="bold">1.2</text>
-
-      <text x="0" y="68" font-size="12">[ ] Prefix Story Text with [FEED NAME]     [x] CRT Horizontal Scanlines     [x] Analog RF Grain &amp; VHS Shimmer     [x] CRT Corner Vignette</text>
+      <rect x="455" y="196" width="123" height="30" fill="#242424" stroke="#d8d8d8"/>
+      <text x="516" y="216" fill="#e8e8e8" font-weight="bold" text-anchor="middle">+ SAVE PRESET</text>
     </g>
   </g>
 </svg>

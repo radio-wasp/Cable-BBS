@@ -1,13 +1,27 @@
+import hashlib
+import hmac
 import json
 import logging
 import os
+import secrets
 import threading
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 from app import config
 
 logger = logging.getLogger("cable-bulletin.settings")
+
+
+def _hash_password(password: str, salt: str) -> str:
+    dk = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120_000,
+    )
+    return dk.hex()
 
 
 def _default_settings() -> Dict[str, Any]:
@@ -20,6 +34,7 @@ def _default_settings() -> Dict[str, Any]:
             "url": config.AUDIO_STREAM_URL,
         })
 
+    salt = secrets.token_hex(16)
     return {
         "rss_feeds": [
             {
@@ -38,6 +53,12 @@ def _default_settings() -> Dict[str, Any]:
         "radio_presets": presets,
         "active_radio_id": default_preset_id if presets else None,
         "audio_mode": config.AUDIO_MODE if config.AUDIO_MODE in ("stream", "hum", "silent") else "hum",
+        "video": {
+            "width": config.WIDTH,
+            "height": config.HEIGHT,
+            "fps": config.FPS,
+            "video_bitrate": config.VIDEO_BITRATE,
+        },
         "display": {
             "channel_number": config.CHANNEL_NUMBER,
             "channel_name": config.CHANNEL_NAME,
@@ -52,6 +73,12 @@ def _default_settings() -> Dict[str, Any]:
             "crt_noise": config.CRT_NOISE,
             "crt_vignette": config.CRT_VIGNETTE,
         },
+        "auth": {
+            "username": config.ADMIN_USERNAME,
+            "salt": salt,
+            "password_hash": _hash_password(config.ADMIN_PASSWORD, salt),
+            "session_secret": secrets.token_hex(32),
+        },
     }
 
 
@@ -60,7 +87,9 @@ class SettingsStore:
     Thread-safe persistent configuration store for the Admin Portal:
     - Up to 5 custom RSS feeds
     - Radio station presets + active station / audio mode
+    - Video resolution, FPS, and bitrate settings
     - ASN Cable 10 banner & CRT display settings
+    - Admin login credentials & session token verification
     """
 
     def __init__(self, path: str = config.SETTINGS_FILE) -> None:
@@ -77,12 +106,12 @@ class SettingsStore:
                         loaded = json.load(f)
                     if isinstance(loaded, dict):
                         defaults = _default_settings()
+                        for section in ("display", "video", "auth"):
+                            if section in loaded and isinstance(loaded[section], dict):
+                                merged = dict(defaults[section])
+                                merged.update(loaded[section])
+                                loaded[section] = merged
                         defaults.update(loaded)
-                        if "display" in loaded and isinstance(loaded["display"], dict):
-                            disp = _default_settings()["display"]
-                            disp.update(loaded["display"])
-                            defaults["display"] = disp
-                        # Enforce max 5 RSS feeds
                         defaults["rss_feeds"] = list(defaults.get("rss_feeds", []))[: config.MAX_RSS_FEEDS]
                         self._data = defaults
                         logger.info("Loaded settings from %s", self._path)
@@ -103,9 +132,83 @@ class SettingsStore:
         except Exception as exc:
             logger.warning("Could not persist settings to %s: %s", self._path, exc)
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_public_settings(self) -> Dict[str, Any]:
+        """Returns all settings safe for the Admin UI (excludes password hashes/secrets)."""
         with self._lock:
-            return json.loads(json.dumps(self._data))
+            data = json.loads(json.dumps(self._data))
+            auth = data.pop("auth", {})
+            data["admin_username"] = auth.get("username", config.ADMIN_USERNAME)
+            return data
+
+    # --- Authentication & Session Management ---
+
+    def verify_credentials(self, username: str, password: str) -> bool:
+        with self._lock:
+            auth = self._data.get("auth", {})
+            expected_user = auth.get("username", config.ADMIN_USERNAME)
+            salt = auth.get("salt", "")
+            expected_hash = auth.get("password_hash", "")
+            if not salt or not expected_hash:
+                return False
+            user_ok = hmac.compare_digest(username.strip(), expected_user)
+            cand_hash = _hash_password(password, salt)
+            pass_ok = hmac.compare_digest(cand_hash, expected_hash)
+            return user_ok and pass_ok
+
+    def update_credentials(self, new_username: str, new_password: str) -> str:
+        new_username = new_username.strip()
+        if not new_username:
+            raise ValueError("Username cannot be empty.")
+        if len(new_password) < 4:
+            raise ValueError("Password must be at least 4 characters.")
+        with self._lock:
+            salt = secrets.token_hex(16)
+            self._data["auth"] = {
+                "username": new_username[:40],
+                "salt": salt,
+                "password_hash": _hash_password(new_password, salt),
+                # Rotate session secret so existing sessions must re-authenticate
+                "session_secret": secrets.token_hex(32),
+            }
+            self._save_unlocked()
+            return self._data["auth"]["username"]
+
+    def create_session_token(self, ttl_seconds: int = 86400 * 7) -> str:
+        with self._lock:
+            auth = self._data.get("auth", {})
+            username = auth.get("username", config.ADMIN_USERNAME)
+            secret = auth.get("session_secret", "fallback-secret")
+            exp = int(time.time()) + ttl_seconds
+            payload = f"{username}:{exp}"
+            sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            return f"{payload}:{sig}"
+
+    def verify_session_token(self, token: Optional[str]) -> Optional[str]:
+        if not token or ":" not in token:
+            return None
+        parts = token.split(":")
+        if len(parts) != 3:
+            return None
+        username, exp_str, sig = parts
+        try:
+            exp = int(exp_str)
+        except ValueError:
+            return None
+        if time.time() > exp:
+            return None
+        with self._lock:
+            auth = self._data.get("auth", {})
+            secret = auth.get("session_secret", "fallback-secret")
+            expected_user = auth.get("username", config.ADMIN_USERNAME)
+            if not hmac.compare_digest(username, expected_user):
+                return None
+            payload = f"{username}:{exp_str}"
+            expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            if hmac.compare_digest(sig, expected_sig):
+                return username
+            return None
+
+    # --- RSS Feeds (Max 5) ---
 
     def get_rss_feeds(self) -> List[Dict[str, Any]]:
         with self._lock:
@@ -248,6 +351,41 @@ class SettingsStore:
                 "active_radio_name": active_preset["name"] if active_preset else None,
                 "active_radio_url": active_preset["url"] if active_preset else "",
             }
+
+    # --- Video Resolution, Framerate & Bitrate ---
+
+    def get_video(self) -> Dict[str, Any]:
+        with self._lock:
+            v = dict(self._data.get("video", {}))
+            return {
+                "width": int(v.get("width", config.WIDTH)),
+                "height": int(v.get("height", config.HEIGHT)),
+                "fps": int(v.get("fps", config.FPS)),
+                "video_bitrate": str(v.get("video_bitrate", config.VIDEO_BITRATE)),
+            }
+
+    def update_video(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            v = self.get_video()
+            if "width" in updates and updates["width"] is not None:
+                w = int(updates["width"])
+                # Ensure even width for yuv420p H.264 compatibility
+                w = max(320, min(1920, w - (w % 2)))
+                v["width"] = w
+            if "height" in updates and updates["height"] is not None:
+                h = int(updates["height"])
+                h = max(240, min(1080, h - (h % 2)))
+                v["height"] = h
+            if "fps" in updates and updates["fps"] is not None:
+                v["fps"] = max(5, min(60, int(updates["fps"])))
+            if "video_bitrate" in updates and updates["video_bitrate"] is not None:
+                br = str(updates["video_bitrate"]).strip().lower()
+                if not br.endswith("k") and not br.endswith("m"):
+                    br = f"{int(br)}k"
+                v["video_bitrate"] = br
+            self._data["video"] = v
+            self._save_unlocked()
+            return dict(v)
 
     # --- Display & Banner Settings ---
 
