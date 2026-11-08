@@ -1,13 +1,27 @@
+import hashlib
+import hmac
 import json
 import logging
 import os
+import secrets
 import threading
+import time
 import uuid
 from typing import Any, Dict, List, Optional
 
 from app import config
 
 logger = logging.getLogger("cable-bulletin.settings")
+
+
+def _hash_password(password: str, salt: str) -> str:
+    dk = hashlib.pbkdf2_hmac(
+        "sha256",
+        password.encode("utf-8"),
+        salt.encode("utf-8"),
+        120_000,
+    )
+    return dk.hex()
 
 
 def _default_settings() -> Dict[str, Any]:
@@ -20,6 +34,7 @@ def _default_settings() -> Dict[str, Any]:
             "url": config.AUDIO_STREAM_URL,
         })
 
+    salt = secrets.token_hex(16)
     return {
         "rss_feeds": [
             {
@@ -37,7 +52,29 @@ def _default_settings() -> Dict[str, Any]:
         ],
         "radio_presets": presets,
         "active_radio_id": default_preset_id if presets else None,
-        "audio_mode": config.AUDIO_MODE if config.AUDIO_MODE in ("stream", "hum", "silent") else "hum",
+        "audio_mode": (
+            config.AUDIO_MODE
+            if config.AUDIO_MODE in ("stream", "subsonic", "hum", "silent")
+            else "hum"
+        ),
+        "subsonic": {
+            "server_url": config.SUBSONIC_URL,
+            "username": config.SUBSONIC_USER,
+            "password": config.SUBSONIC_PASSWORD,
+            "legacy_auth": False,
+            "mode": config.SUBSONIC_MODE if config.SUBSONIC_MODE in ("random", "playlist") else "random",
+            "playlist_id": config.SUBSONIC_PLAYLIST_ID,
+            "playlist_name": "",
+            "genre_filter": config.SUBSONIC_GENRE,
+            "shuffle_playlist": True,
+            "transcode_format": "raw",
+        },
+        "video": {
+            "width": config.WIDTH,
+            "height": config.HEIGHT,
+            "fps": config.FPS,
+            "video_bitrate": config.VIDEO_BITRATE,
+        },
         "display": {
             "channel_number": config.CHANNEL_NUMBER,
             "channel_name": config.CHANNEL_NAME,
@@ -52,6 +89,24 @@ def _default_settings() -> Dict[str, Any]:
             "crt_noise": config.CRT_NOISE,
             "crt_vignette": config.CRT_VIGNETTE,
         },
+        "epg": {
+            "channel_number": config.CHANNEL_NUMBER,
+            "channel_name": config.CHANNEL_NAME,
+            "group_title": config.EPG_GROUP_TITLE,
+            "programme_title": config.EPG_PROGRAMME_TITLE,
+            "programme_subtitle": config.EPG_PROGRAMME_SUBTITLE,
+            "programme_description": config.EPG_PROGRAMME_DESC,
+            "programme_category": config.EPG_CATEGORY,
+            "slot_duration_minutes": config.EPG_SLOT_MINUTES,
+            "append_live_headlines": False,
+            "append_active_radio": False,
+        },
+        "auth": {
+            "username": config.ADMIN_USERNAME,
+            "salt": salt,
+            "password_hash": _hash_password(config.ADMIN_PASSWORD, salt),
+            "session_secret": secrets.token_hex(32),
+        },
     }
 
 
@@ -60,7 +115,10 @@ class SettingsStore:
     Thread-safe persistent configuration store for the Admin Portal:
     - Up to 5 custom RSS feeds
     - Radio station presets + active station / audio mode
+    - Video resolution, FPS, and bitrate settings
     - ASN Cable 10 banner & CRT display settings
+    - Customizable XMLTV EPG & M3U guide output settings
+    - Admin login credentials & session token verification
     """
 
     def __init__(self, path: str = config.SETTINGS_FILE) -> None:
@@ -77,12 +135,12 @@ class SettingsStore:
                         loaded = json.load(f)
                     if isinstance(loaded, dict):
                         defaults = _default_settings()
+                        for section in ("display", "video", "epg", "subsonic", "auth"):
+                            if section in loaded and isinstance(loaded[section], dict):
+                                merged = dict(defaults[section])
+                                merged.update(loaded[section])
+                                loaded[section] = merged
                         defaults.update(loaded)
-                        if "display" in loaded and isinstance(loaded["display"], dict):
-                            disp = _default_settings()["display"]
-                            disp.update(loaded["display"])
-                            defaults["display"] = disp
-                        # Enforce max 5 RSS feeds
                         defaults["rss_feeds"] = list(defaults.get("rss_feeds", []))[: config.MAX_RSS_FEEDS]
                         self._data = defaults
                         logger.info("Loaded settings from %s", self._path)
@@ -103,9 +161,86 @@ class SettingsStore:
         except Exception as exc:
             logger.warning("Could not persist settings to %s: %s", self._path, exc)
 
-    def get_all(self) -> Dict[str, Any]:
+    def get_public_settings(self) -> Dict[str, Any]:
+        """Returns all settings safe for the Admin UI (excludes password hashes/secrets)."""
         with self._lock:
-            return json.loads(json.dumps(self._data))
+            data = json.loads(json.dumps(self._data))
+            auth = data.pop("auth", {})
+            data["admin_username"] = auth.get("username", config.ADMIN_USERNAME)
+            if "subsonic" in data and isinstance(data["subsonic"], dict):
+                has_pw = bool(data["subsonic"].get("password"))
+                data["subsonic"]["has_password"] = has_pw
+                data["subsonic"]["password"] = ""
+            return data
+
+    # --- Authentication & Session Management ---
+
+    def verify_credentials(self, username: str, password: str) -> bool:
+        with self._lock:
+            auth = self._data.get("auth", {})
+            expected_user = auth.get("username", config.ADMIN_USERNAME)
+            salt = auth.get("salt", "")
+            expected_hash = auth.get("password_hash", "")
+            if not salt or not expected_hash:
+                return False
+            user_ok = hmac.compare_digest(username.strip(), expected_user)
+            cand_hash = _hash_password(password, salt)
+            pass_ok = hmac.compare_digest(cand_hash, expected_hash)
+            return user_ok and pass_ok
+
+    def update_credentials(self, new_username: str, new_password: str) -> str:
+        new_username = new_username.strip()
+        if not new_username:
+            raise ValueError("Username cannot be empty.")
+        if len(new_password) < 4:
+            raise ValueError("Password must be at least 4 characters.")
+        with self._lock:
+            salt = secrets.token_hex(16)
+            self._data["auth"] = {
+                "username": new_username[:40],
+                "salt": salt,
+                "password_hash": _hash_password(new_password, salt),
+                "session_secret": secrets.token_hex(32),
+            }
+            self._save_unlocked()
+            return self._data["auth"]["username"]
+
+    def create_session_token(self, ttl_seconds: int = 86400 * 7) -> str:
+        with self._lock:
+            auth = self._data.get("auth", {})
+            username = auth.get("username", config.ADMIN_USERNAME)
+            secret = auth.get("session_secret", "fallback-secret")
+            exp = int(time.time()) + ttl_seconds
+            payload = f"{username}:{exp}"
+            sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            return f"{payload}:{sig}"
+
+    def verify_session_token(self, token: Optional[str]) -> Optional[str]:
+        if not token or ":" not in token:
+            return None
+        parts = token.split(":")
+        if len(parts) != 3:
+            return None
+        username, exp_str, sig = parts
+        try:
+            exp = int(exp_str)
+        except ValueError:
+            return None
+        if time.time() > exp:
+            return None
+        with self._lock:
+            auth = self._data.get("auth", {})
+            secret = auth.get("session_secret", "fallback-secret")
+            expected_user = auth.get("username", config.ADMIN_USERNAME)
+            if not hmac.compare_digest(username, expected_user):
+                return None
+            payload = f"{username}:{exp_str}"
+            expected_sig = hmac.new(secret.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
+            if hmac.compare_digest(sig, expected_sig):
+                return username
+            return None
+
+    # --- RSS Feeds (Max 5) ---
 
     def get_rss_feeds(self) -> List[Dict[str, Any]]:
         with self._lock:
@@ -225,8 +360,8 @@ class SettingsStore:
 
     def set_audio_selection(self, audio_mode: str, active_radio_id: Optional[str] = None) -> Dict[str, Any]:
         mode = audio_mode.strip().lower()
-        if mode not in ("stream", "hum", "silent"):
-            raise ValueError("audio_mode must be 'stream', 'hum', or 'silent'")
+        if mode not in ("stream", "subsonic", "hum", "silent"):
+            raise ValueError("audio_mode must be 'stream', 'subsonic', 'hum', or 'silent'")
         with self._lock:
             self._data["audio_mode"] = mode
             if active_radio_id is not None:
@@ -242,12 +377,134 @@ class SettingsStore:
             active_preset = next((p for p in presets if p.get("id") == active_id), None)
             if active_preset is None and presets:
                 active_preset = presets[0]
+            sub = self._data.get("subsonic", {})
             return {
                 "audio_mode": mode,
                 "active_radio_id": active_preset["id"] if active_preset else None,
                 "active_radio_name": active_preset["name"] if active_preset else None,
                 "active_radio_url": active_preset["url"] if active_preset else "",
+                "subsonic_url": sub.get("server_url", ""),
+                "subsonic_mode": sub.get("mode", "random"),
+                "subsonic_playlist_name": sub.get("playlist_name", ""),
             }
+
+    # --- Subsonic / Gonic Music Library Settings ---
+
+    def get_subsonic(self, include_password: bool = False) -> Dict[str, Any]:
+        with self._lock:
+            sub = dict(_default_settings()["subsonic"])
+            sub.update(self._data.get("subsonic", {}))
+            sub["has_password"] = bool(sub.get("password"))
+            if not include_password:
+                sub["password"] = ""
+            return sub
+
+    def update_subsonic(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            sub = dict(_default_settings()["subsonic"])
+            sub.update(self._data.get("subsonic", {}))
+            if "server_url" in updates and updates["server_url"] is not None:
+                sub["server_url"] = str(updates["server_url"]).strip().rstrip("/")
+            if "username" in updates and updates["username"] is not None:
+                sub["username"] = str(updates["username"]).strip()
+            # Only overwrite saved password if a non-empty password string is provided
+            if "password" in updates and updates["password"]:
+                sub["password"] = str(updates["password"])
+            if "legacy_auth" in updates and updates["legacy_auth"] is not None:
+                sub["legacy_auth"] = bool(updates["legacy_auth"])
+            if "mode" in updates and updates["mode"] in ("random", "playlist"):
+                sub["mode"] = str(updates["mode"])
+            if "playlist_id" in updates and updates["playlist_id"] is not None:
+                sub["playlist_id"] = str(updates["playlist_id"]).strip()
+            if "playlist_name" in updates and updates["playlist_name"] is not None:
+                sub["playlist_name"] = str(updates["playlist_name"]).strip()[:80]
+            if "genre_filter" in updates and updates["genre_filter"] is not None:
+                sub["genre_filter"] = str(updates["genre_filter"]).strip()[:60]
+            if "shuffle_playlist" in updates and updates["shuffle_playlist"] is not None:
+                sub["shuffle_playlist"] = bool(updates["shuffle_playlist"])
+            if "transcode_format" in updates and updates["transcode_format"] in ("raw", "mp3", "opus"):
+                sub["transcode_format"] = str(updates["transcode_format"])
+            self._data["subsonic"] = sub
+            if updates.get("activate"):
+                self._data["audio_mode"] = "subsonic"
+            self._save_unlocked()
+            return self.get_subsonic(include_password=False)
+
+    # --- Video Resolution, Framerate & Bitrate ---
+
+    def get_video(self) -> Dict[str, Any]:
+        with self._lock:
+            v = dict(self._data.get("video", {}))
+            return {
+                "width": int(v.get("width", config.WIDTH)),
+                "height": int(v.get("height", config.HEIGHT)),
+                "fps": int(v.get("fps", config.FPS)),
+                "video_bitrate": str(v.get("video_bitrate", config.VIDEO_BITRATE)),
+            }
+
+    def update_video(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            v = self.get_video()
+            if "width" in updates and updates["width"] is not None:
+                w = int(updates["width"])
+                w = max(320, min(1920, w - (w % 2)))
+                v["width"] = w
+            if "height" in updates and updates["height"] is not None:
+                h = int(updates["height"])
+                h = max(240, min(1080, h - (h % 2)))
+                v["height"] = h
+            if "fps" in updates and updates["fps"] is not None:
+                v["fps"] = max(5, min(60, int(updates["fps"])))
+            if "video_bitrate" in updates and updates["video_bitrate"] is not None:
+                br = str(updates["video_bitrate"]).strip().lower()
+                if not br.endswith("k") and not br.endswith("m"):
+                    br = f"{int(br)}k"
+                v["video_bitrate"] = br
+            self._data["video"] = v
+            self._save_unlocked()
+            return dict(v)
+
+    # --- EPG & M3U Guide Output Settings ---
+
+    def get_epg(self) -> Dict[str, Any]:
+        with self._lock:
+            epg = dict(_default_settings()["epg"])
+            epg.update(self._data.get("epg", {}))
+            return epg
+
+    def update_epg(self, updates: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            epg = self.get_epg()
+            for key, max_len in (
+                ("channel_number", 16),
+                ("channel_name", 60),
+                ("group_title", 60),
+                ("programme_title", 120),
+                ("programme_subtitle", 160),
+                ("programme_description", 800),
+                ("programme_category", 40),
+            ):
+                if key in updates and updates[key] is not None:
+                    epg[key] = str(updates[key]).strip()[:max_len]
+
+            if "slot_duration_minutes" in updates and updates["slot_duration_minutes"] is not None:
+                slot = int(updates["slot_duration_minutes"])
+                epg["slot_duration_minutes"] = max(15, min(360, slot))
+
+            for bool_key in ("append_live_headlines", "append_active_radio"):
+                if bool_key in updates and updates[bool_key] is not None:
+                    epg[bool_key] = bool(updates[bool_key])
+
+            self._data["epg"] = epg
+            # Keep display channel_number / channel_name synchronized
+            disp = dict(self._data.get("display", {}))
+            if epg.get("channel_number"):
+                disp["channel_number"] = epg["channel_number"]
+            if epg.get("channel_name"):
+                disp["channel_name"] = epg["channel_name"]
+            self._data["display"] = disp
+            self._save_unlocked()
+            return dict(epg)
 
     # --- Display & Banner Settings ---
 

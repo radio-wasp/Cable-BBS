@@ -55,17 +55,22 @@ Unlike browser-capture streamers, `cable-bulletin-hls` does **not** use Chromium
 
 ## Admin Portal Features (`http://<host>:8080/`)
 
-- **Custom RSS Feeds (Up to 5 Feeds)**:
+- **Operator Login Prompt & Session Auth**:
+  - Protects the Admin Portal and configuration APIs with an operator login prompt (default credentials: `admin` / `cable10`, configurable via `ADMIN_USERNAME` and `ADMIN_PASSWORD` or the **4. Login & Security** tab).
+  - IPTV / HLS stream playback routes (`/hls/stream.m3u8`, `/live.ts`, `/playlist.m3u`, `/epg.xml`) remain accessible to media players and tuners without requiring browser cookies.
+- **1. Custom RSS Feeds (Up to 5 Feeds) & Audio Source (Radio or Subsonic / Gonic)**:
   - Add, enable/disable, or delete up to **5 custom RSS or Atom feeds** directly from the web UI.
-  - Enabled feeds are automatically fetched, sanitized into broadcast-wire paragraphs, and interleaved round-robin onto the bulletin board.
-- **Radio Station Presets & Live Tuner**:
-  - Save multiple internet radio streams (MP3, AAC, Icecast, Leanstream, Shoutcast) as named presets.
-  - Click **TUNE IN** next to any preset to switch the live HLS stream's background audio on the fly without restarting the container.
-  - Switch between **Live Radio Stream** (`stream`), **60 Hz CRT Hum** (`hum`), or **Silent / Mute** (`silent`) at any time.
-- **Banner & CRT Customizer**:
+  - **Radio Station Presets**: Save multiple internet radio streams (MP3, AAC, Icecast, Leanstream, Shoutcast) as named presets and click **TUNE IN** to switch the live HLS audio stream on the fly.
+  - **Subsonic / Gonic Music Library**: Connect to any Subsonic-compatible server (**Gonic**, **Navidrome**, **Airsonic**, **Subsonic**) to stream either **Random Library Shuffle** (with optional genre filter) or a **Specific Subsonic Playlist** continuously into the HLS stream, complete with a live `NOW PLAYING` display and **SKIP TRACK** button.
+- **2. Resolution, Framerate & Bitrate Tab**:
+  - Switch video resolution (`1920×1080`, `1280×720`, `960×540` Railway Saver, `854×480`, `640×480` 4:3 CRT, or custom dimensions), framerate (`10`–`30 fps`), and H.264 bitrate (`600k`–`3500k`) live without restarting the container.
+  - Includes a built-in **Cloud & Bandwidth Estimator** showing hourly outbound traffic (`GB/hr`) and estimated Railway vCPU cost.
+- **3. Banner & CRT Customizer**:
   - Edit the 3D Left Banner Logo (`ASN`), Right Banner Lines 1–3 (`YOUR MAIN`, `ATTRACTION`, `CABLE 10`), page hold duration, typewriter reveal speed, and CRT scanline/noise/vignette effects live.
+- **4. EPG & M3U Guide Customizer**:
+  - Customize what `/epg.xml` and `/playlist.m3u` output to IPTV clients (Channel Number, Channel Display Name, M3U `group-title`, Programme `<title>`, `<sub-title>`, `<desc>`, `<category>`, and guide block duration), plus optional toggles to dynamically append the latest 3 live RSS headlines and active radio station name into the EPG description.
 - **Persistent Storage**:
-  - All Admin Portal settings are saved to `/app/data/settings.json` (mounted to `./data` in `docker-compose.yml`).
+  - All Admin Portal settings, feeds, radio presets, resolution profiles, and password hashes are saved to `/app/data/settings.json` (mounted to `./data` in `docker-compose.yml`).
 
 ---
 
@@ -166,9 +171,18 @@ http://<server-ip>:8080/hls/stream.m3u8
 | `DELETE /api/feeds/{id}` | Delete an RSS feed |
 | `POST /api/radio/presets` | Add a radio station preset (`{name, url, activate}`) |
 | `PUT /api/radio/presets/{id}` | Update a radio station preset (`{name, url}`) |
-| `POST /api/radio/select` | Switch active radio preset or audio mode (`{audio_mode, active_radio_id}`) |
+| `POST /api/radio/select` | Switch active audio mode (`stream`, `subsonic`, `hum`, `silent`) or radio preset |
 | `DELETE /api/radio/presets/{id}` | Delete a radio station preset |
+| `PUT /api/subsonic/config` | Save Subsonic / Gonic server credentials, playback mode (`random` or `playlist`), playlist ID, and genre filter |
+| `POST /api/subsonic/test` | Test Subsonic / Gonic connection (`/rest/ping.view`) and fetch available playlists |
+| `GET /api/subsonic/playlists` | List playlists from the configured Subsonic / Gonic server |
+| `POST /api/subsonic/skip` | Immediately skip to the next track in the Subsonic queue |
+| `PUT /api/video` | Update resolution (`width`, `height`), `fps`, and `video_bitrate` and restart encoder |
 | `PUT /api/display` | Update banner text and CRT display settings |
+| `PUT /api/epg` | Update XMLTV EPG & M3U playlist metadata (`programme_title`, `programme_subtitle`, `programme_description`, `programme_category`, `group_title`, `slot_duration_minutes`, `append_live_headlines`, `append_active_radio`) |
+| `POST /api/auth/login` | Authenticate operator (`{username, password}`) and set session cookie |
+| `POST /api/auth/logout` | Clear operator session cookie |
+| `PUT /api/auth/credentials` | Change admin username and password (`{current_password, new_username, new_password}`) |
 | `POST /api/refresh` | Trigger an immediate RSS refresh across all enabled feeds |
 | `GET /health` | Container healthcheck endpoint |
 
@@ -182,6 +196,8 @@ Environment variables seed the initial defaults when `/app/data/settings.json` i
 | :--- | :--- | :--- |
 | `PORT` | `8080` | HTTP server & Admin Portal port |
 | `DATA_DIR` | `/app/data` | Directory where `settings.json` is persisted |
+| `ADMIN_USERNAME` | `admin` | Initial Admin Portal login username |
+| `ADMIN_PASSWORD` | `cable10` | Initial Admin Portal login password |
 | `TZ` | `UTC` | Local timezone for the top broadcast clock (e.g. `America/Halifax`) |
 | `CHANNEL_NUMBER` | `10` | Channel number used in M3U/EPG metadata |
 | `CHANNEL_NAME` | `CABLE 10 BULLETIN` | Channel name used in M3U/EPG metadata and portal header |
@@ -199,8 +215,11 @@ Environment variables seed the initial defaults when `/app/data/settings.json` i
 | `SCANLINES` | `true` | Enable horizontal CRT scanlines |
 | `CRT_NOISE` | `true` | Enable subtle analog RF grain & bottom VHS chroma shimmer |
 | `CRT_VIGNETTE` | `true` | Enable CRT corner vignette darkening |
-| `AUDIO_MODE` | `stream` | Initial audio mode (`stream`, `hum`, or `silent`) |
+| `AUDIO_MODE` | `stream` | Initial audio mode (`stream` for radio, `subsonic` for Gonic/Subsonic, `hum`, or `silent`) |
 | `AUDIO_STREAM_URL` | `https://...CKULFM` | Initial radio preset URL |
+| `SUBSONIC_URL` | *(empty)* | Optional initial Subsonic / Gonic server URL (e.g. `http://192.168.1.50:4747`) |
+| `SUBSONIC_USER` | *(empty)* | Optional initial Subsonic / Gonic username |
+| `SUBSONIC_PASSWORD` | *(empty)* | Optional initial Subsonic / Gonic password |
 | `REFRESH_INTERVAL_MINUTES` | `10` | Background RSS refresh interval in minutes |
 
 ---
@@ -218,6 +237,7 @@ cable-bulletin-hls/
     ├── config.py            # Environment variable defaults
     ├── settings_store.py    # Persistent JSON store (/app/data/settings.json) for feeds, radio presets & banner
     ├── rss_fetcher.py       # Multi-feed RSS/Atom parser (up to 5 feeds) & broadcast wire formatter
+    ├── subsonic.py          # Subsonic / Gonic API client & continuous 44.1kHz stereo PCM audio feeder
     ├── renderer.py          # 24-bit RGB ASN / Cable 10 3-band CRT frame renderer (Pillow)
     ├── streamer.py          # FFmpeg HLS (.m3u8 + .ts) & MPEG-TS encoder with live radio switching
     ├── main.py              # FastAPI server, Admin Portal REST API, and HLS/M3U/EPG routes

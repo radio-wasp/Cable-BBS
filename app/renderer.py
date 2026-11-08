@@ -3,6 +3,7 @@ import logging
 import math
 import os
 import random
+import threading
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
@@ -42,7 +43,7 @@ def _load_font(candidates: List[str], size: int) -> ImageFont.FreeTypeFont:
     for path in candidates:
         if os.path.exists(path):
             try:
-                return ImageFont.truetype(path, size)
+                return ImageFont.truetype(path, max(8, size))
             except Exception:
                 continue
     return ImageFont.load_default()
@@ -88,22 +89,27 @@ def _wrap_indented_story(text: str, width: int = 29, indent_spaces: int = 3, max
 class BulletinRenderer:
     """
     Renders 24-bit RGB colour frames replicating the vintage
-    ASN / Cable 10 3-band character generator layout:
-    - Top gunmetal grey clock/date bar
-    - Middle royal-blue news field with pale ice-white slab-serif caps & navy drop shadow
-    - Bottom violet/indigo graphic banner with 3D blue-chrome 'ASN' logo & wireframe grid
+    ASN / Cable 10 3-band character generator layout with dynamic resolution scaling.
     """
 
-    def __init__(self, width: int = config.WIDTH, height: int = config.HEIGHT) -> None:
+    def __init__(self) -> None:
+        self._lock = threading.RLock()
+        self._start_time = time.monotonic()
+        v = settings_store.get_video()
+        self._init_dimensions(v["width"], v["height"])
+
+    def _init_dimensions(self, width: int, height: int) -> None:
         self.width = width
         self.height = height
-        self.scale = height / 720.0
+        self.scale_x = width / 1280.0
+        self.scale_y = height / 720.0
+        self.scale = min(self.scale_x, self.scale_y)
 
         # Band Y-coordinates (matching the reference photo's proportions)
-        self.top_bar_h = self._s(112)      # ~15.5% height
-        self.bot_banner_y = self._s(520)   # ~72.2% height (middle band is 112..520)
+        self.top_bar_h = self._sy(112)      # ~15.5% height
+        self.bot_banner_y = self._sy(520)   # ~72.2% height (middle band is 112..520)
 
-        # Fonts
+        # Fonts scaled proportionally
         self.font_clock = _load_font(SANS_BOLD_CANDIDATES, self._s(42))
         self.font_story = _load_font(SLAB_MONO_BOLD_CANDIDATES, self._s(44))
         self.font_watermark = _load_font(SANS_BOLD_CANDIDATES, self._s(34))
@@ -111,23 +117,30 @@ class BulletinRenderer:
         self.font_promo_main = _load_font(SANS_BOLD_CANDIDATES, self._s(46))
         self.font_promo_sub = _load_font(SANS_BOLD_CANDIDATES, self._s(31))
 
-        # Cached background template & banner cache key
-        self._cached_banner_key: Optional[Tuple[str, str, str, str]] = None
+        self._cached_banner_key: Optional[Tuple[str, str, str, str, int, int]] = None
         self._bg_template: Image.Image = Image.new("RGB", (self.width, self.height), color=(12, 58, 128))
 
-        # Pre-rendered RGB scanline + vignette masks
         self._scanline_mask = self._build_mask(scanlines=True, vignette=True)
         self._scanline_only_mask = self._build_mask(scanlines=True, vignette=False)
         self._vignette_only_mask = self._build_mask(scanlines=False, vignette=True)
 
-        # Pre-rendered ring buffer of subtle analog RF grain + VHS bottom head-switching noise
         self._noise_frames = self._build_noise_frames(count=8)
         self._noise_idx = 0
 
-        self._start_time = time.monotonic()
+    def reconfigure(self, width: int, height: int) -> None:
+        with self._lock:
+            if width != self.width or height != self.height:
+                logger.info("Reconfiguring BulletinRenderer resolution to %dx%d", width, height)
+                self._init_dimensions(width, height)
 
     def _s(self, val: float) -> int:
-        return int(round(val * self.scale))
+        return max(1, int(round(val * self.scale)))
+
+    def _sx(self, val: float) -> int:
+        return int(round(val * self.scale_x))
+
+    def _sy(self, val: float) -> int:
+        return int(round(val * self.scale_y))
 
     def _draw_wide_text_with_shadow(
         self,
@@ -141,10 +154,6 @@ class BulletinRenderer:
         stretch_x: float = 1.12,
         letter_spacing: int = 0,
     ) -> int:
-        """
-        Draws text onto a temporary alpha mask with optional letter-spacing and horizontal
-        NTSC character-generator stretch, plus a crisp drop shadow. Returns drawn width.
-        """
         if not text:
             return 0
 
@@ -189,11 +198,6 @@ class BulletinRenderer:
         return int(round(total_w * stretch_x))
 
     def _build_3d_metallic_logo(self, logo_text: str) -> Tuple[Image.Image, Image.Image]:
-        """
-        Renders the giant 3D blue-chrome slanted block letters ('ASN') for the bottom-left
-        banner, matching the purple/blue/silver 3D extruded logo in the reference image.
-        Returns (logo_rgb_image, alpha_mask).
-        """
         W_box = self._s(560)
         H_box = self._s(190)
 
@@ -201,7 +205,6 @@ class BulletinRenderer:
         fdraw = ImageDraw.Draw(face_mask)
         fdraw.text((self._s(36), self._s(10)), logo_text, fill=255, font=self.font_logo)
 
-        # Apply slight italic forward slant like the ASN logo
         shear = 0.16
         face_mask = face_mask.transform(
             (W_box, H_box),
@@ -213,8 +216,7 @@ class BulletinRenderer:
         canvas = Image.new("RGB", (W_box, H_box), color=(0, 0, 0))
         alpha = Image.new("L", (W_box, H_box), color=0)
 
-        # 1. Extruded 3D deep navy/indigo block shadow layers (down-left & down-right depth)
-        depth = self._s(14)
+        depth = max(3, self._s(14))
         for d in range(depth, 0, -1):
             ox = -int(d * 0.6)
             oy = int(d * 0.85)
@@ -233,12 +235,10 @@ class BulletinRenderer:
             canvas.paste(extrude_color, (0, 0), shifted)
             alpha = ImageChops.lighter(alpha, shifted)
 
-        # Soft dark drop shadow to the right
-        r_shadow = ImageChops.offset(face_mask, self._s(8), self._s(8)).filter(ImageFilter.GaussianBlur(3))
+        r_shadow = ImageChops.offset(face_mask, self._s(8), self._s(8)).filter(ImageFilter.GaussianBlur(max(1, self._s(3))))
         canvas.paste((10, 6, 28), (0, 0), r_shadow)
         alpha = ImageChops.lighter(alpha, r_shadow)
 
-        # 2. Blue-chrome / periwinkle / icy-silver vertical gradient inside the letter face
         grad = Image.new("RGB", (W_box, H_box), color=(110, 130, 235))
         gdraw = ImageDraw.Draw(grad)
         top_y = self._s(18)
@@ -247,19 +247,16 @@ class BulletinRenderer:
         for y in range(H_box):
             t = max(0.0, min(1.0, (y - top_y) / float(span)))
             if t < 0.38:
-                # Cool periwinkle top -> bright icy lavender-white horizon highlight
                 u = t / 0.38
                 r = int(125 + u * 112)
                 g = int(142 + u * 98)
                 b = int(235 + u * 20)
             elif t < 0.56:
-                # Horizon highlight -> vivid cobalt/periwinkle mid-band
                 u = (t - 0.38) / 0.18
                 r = int(237 - u * 132)
                 g = int(240 - u * 122)
                 b = int(255 - u * 15)
             else:
-                # Mid-band -> rich royal blue base
                 u = (t - 0.56) / 0.44
                 r = int(105 - u * 55)
                 g = int(118 - u * 52)
@@ -269,7 +266,6 @@ class BulletinRenderer:
                 fill=(max(0, min(255, r)), max(0, min(255, g)), max(0, min(255, b))),
             )
 
-        # Crisp icy-white inner bevel highlight around the letter edges
         eroded = face_mask.filter(ImageFilter.MinFilter(3))
         edge_bevel = ImageChops.subtract(face_mask, eroded)
 
@@ -282,25 +278,18 @@ class BulletinRenderer:
     def _build_bg_template(
         self, banner_logo: str, line1: str, line2: str, line3: str
     ) -> Image.Image:
-        """
-        Builds the static 3-band ASN Cable 10 colour background template:
-        1. Top gunmetal-grey header bar with 3D bottom bevel
-        2. Middle deep royal-blue (#0c3a80) news bulletin field
-        3. Bottom purple/indigo graphic promo banner with perspective grid,
-           faint 'NEWS' watermarks, giant 3D 'ASN' logo, and 'YOUR MAIN / ATTRACTION / CABLE 10'.
-        """
         W, H = self.width, self.height
         img = Image.new("RGB", (W, H), color=(12, 58, 128))
         draw = ImageDraw.Draw(img)
 
         # --- 1. TOP BAND (Warm gunmetal grey bar with 3D bevel) ---
-        draw.rectangle([0, 0, W, self.top_bar_h - self._s(6)], fill=(96, 96, 94))
+        draw.rectangle([0, 0, W, self.top_bar_h - self._sy(6)], fill=(96, 96, 94))
         draw.rectangle(
-            [0, self.top_bar_h - self._s(6), W, self.top_bar_h - self._s(3)],
+            [0, self.top_bar_h - self._sy(6), W, self.top_bar_h - self._sy(3)],
             fill=(74, 74, 72),
         )
         draw.rectangle(
-            [0, self.top_bar_h - self._s(3), W, self.top_bar_h],
+            [0, self.top_bar_h - self._sy(3), W, self.top_bar_h],
             fill=(36, 38, 42),
         )
         draw.line([(0, self.top_bar_h), (W, self.top_bar_h)], fill=(90, 122, 168), width=1)
@@ -310,40 +299,37 @@ class BulletinRenderer:
 
         # --- 3. BOTTOM BAND (ASN Purple/Indigo Graphic Promo Banner) ---
         by = self.bot_banner_y
-        bh = H - by
+        bh = max(1, H - by)
 
-        # Rich violet-to-deep-indigo vertical gradient base
         for y in range(by, H):
-            rel = (y - by) / float(max(1, bh))
+            rel = (y - by) / float(bh)
             r = int(56 - rel * 32)
             g = int(16 - rel * 8)
             b = int(112 - rel * 48)
             draw.line([(0, y), (W, y)], fill=(max(12, r), max(6, g), max(38, b)))
 
-        # Vivid magenta-violet ambient glow on left/center + deep cobalt glow on right
         glow = Image.new("RGB", (W, bh), color=(0, 0, 0))
         gdraw = ImageDraw.Draw(glow)
         gdraw.ellipse(
-            [self._s(40), -self._s(35), self._s(690), bh + self._s(40)],
+            [self._sx(40), -self._sy(35), self._sx(690), bh + self._sy(40)],
             fill=(68, 18, 105),
         )
         gdraw.ellipse(
-            [self._s(600), self._s(5), self._s(1200), bh + self._s(35)],
+            [self._sx(600), self._sy(5), self._sx(1200), bh + self._sy(35)],
             fill=(16, 22, 65),
         )
-        glow = glow.filter(ImageFilter.GaussianBlur(self._s(28)))
+        glow = glow.filter(ImageFilter.GaussianBlur(max(2, self._s(28))))
         img.paste(ImageChops.add(img.crop((0, by, W, H)), glow), (0, by))
         draw = ImageDraw.Draw(img)
 
-        # Faint diagonal "NEWS" watermark tiles in left/center of bottom banner
         wm_layer = Image.new("RGB", (W, bh), color=(0, 0, 0))
         wdraw = ImageDraw.Draw(wm_layer)
-        for wx in range(-self._s(40), self._s(700), self._s(170)):
-            for wy in range(-self._s(10), bh, self._s(52)):
+        for wx in range(-self._sx(40), self._sx(700), max(20, self._sx(170))):
+            for wy in range(-self._sy(10), bh, max(12, self._sy(52))):
                 wdraw.rectangle(
                     [wx, wy, wx + self._s(135), wy + self._s(36)],
                     outline=(32, 24, 58),
-                    width=2,
+                    width=max(1, self._s(2)),
                 )
                 wdraw.text(
                     (wx + self._s(10), wy + self._s(2)),
@@ -355,31 +341,24 @@ class BulletinRenderer:
         img.paste(ImageChops.add(img.crop((0, by, W, H)), wm_layer), (0, by))
         draw = ImageDraw.Draw(img)
 
-        # 3D Perspective Wireframe Grid across the bottom banner
-        vanish_x = self._s(520)
-        vanish_y = by - self._s(90)
+        vanish_x = self._sx(520)
+        vanish_y = by - self._sy(90)
         grid_color = (76, 72, 126)
-        for gx in range(-self._s(200), W + self._s(500), self._s(95)):
-            draw.line([(vanish_x, vanish_y), (gx, H)], fill=grid_color, width=2)
+        for gx in range(-self._sx(200), W + self._sx(500), max(20, self._sx(95))):
+            draw.line([(vanish_x, vanish_y), (gx, H)], fill=grid_color, width=max(1, self._s(2)))
         for step in (0.18, 0.36, 0.56, 0.78, 0.94):
             gy = int(by + step * bh)
-            draw.line([(0, gy), (W, gy)], fill=(66, 62, 114), width=2)
+            draw.line([(0, gy), (W, gy)], fill=(66, 62, 114), width=max(1, self._s(2)))
 
-        # Crisp top divider bevel above the bottom banner
         draw.line([(0, by), (W, by)], fill=(8, 22, 58), width=2)
         draw.line([(0, by + 2), (W, by + 2)], fill=(115, 148, 205), width=2)
         draw.line([(0, by + 4), (W, by + 4)], fill=(38, 28, 82), width=1)
 
-        # Giant 3D Metallic Logo ('ASN') on the left of the bottom banner
         if banner_logo:
             logo_img, logo_mask = self._build_3d_metallic_logo(banner_logo)
-            img.paste(logo_img, (self._s(165), by + self._s(8)), logo_mask)
+            img.paste(logo_img, (self._sx(165), by + self._sy(8)), logo_mask)
 
-        # Right-side stacked promo text:
-        # Line 1: YOUR MAIN
-        # Line 2: ATTRACTION
-        # Line 3: CABLE 10
-        right_center_x = self._s(905)
+        right_center_x = self._sx(905)
         promo_fill = (232, 232, 242)
         promo_shadow = (10, 6, 24)
 
@@ -387,7 +366,7 @@ class BulletinRenderer:
             w1 = self._measure_stretched(line1, self.font_promo_main, stretch_x=1.18, spacing=self._s(2))
             self._draw_wide_text_with_shadow(
                 img,
-                (right_center_x - w1 // 2, by + self._s(24)),
+                (right_center_x - w1 // 2, by + self._sy(24)),
                 line1.upper(),
                 self.font_promo_main,
                 fill=promo_fill,
@@ -400,7 +379,7 @@ class BulletinRenderer:
             w2 = self._measure_stretched(line2, self.font_promo_main, stretch_x=1.18, spacing=self._s(2))
             self._draw_wide_text_with_shadow(
                 img,
-                (right_center_x - w2 // 2, by + self._s(80)),
+                (right_center_x - w2 // 2, by + self._sy(80)),
                 line2.upper(),
                 self.font_promo_main,
                 fill=promo_fill,
@@ -413,7 +392,7 @@ class BulletinRenderer:
             w3 = self._measure_stretched(line3, self.font_promo_sub, stretch_x=1.25, spacing=self._s(6))
             self._draw_wide_text_with_shadow(
                 img,
-                (right_center_x - w3 // 2, by + self._s(138)),
+                (right_center_x - w3 // 2, by + self._sy(138)),
                 line3.upper(),
                 self.font_promo_sub,
                 fill=(218, 220, 235),
@@ -476,9 +455,8 @@ class BulletinRenderer:
                     buf[i] = 0
             small_l = Image.frombytes("L", (nw, nh), bytes(buf)).resize((W, H), Image.NEAREST)
             rgb_noise = Image.merge("RGB", (small_l, small_l, small_l))
-            # Add subtle VHS/analog chroma head-switching noise along the bottom 4 scanlines (like reference image)
             sdraw = ImageDraw.Draw(rgb_noise)
-            for by in range(H - self._s(5), H):
+            for by in range(max(0, H - self._sy(5)), H):
                 seg_x = rng.randint(0, W // 3)
                 seg_w = rng.randint(W // 4, W - seg_x)
                 chroma_tint = rng.choice([
@@ -496,122 +474,126 @@ class BulletinRenderer:
             str(disp.get("banner_line_1", config.BANNER_LINE_1)),
             str(disp.get("banner_line_2", config.BANNER_LINE_2)),
             str(disp.get("banner_line_3", config.BANNER_LINE_3)),
+            self.width,
+            self.height,
         )
         if key != self._cached_banner_key:
-            self._bg_template = self._build_bg_template(*key)
+            self._bg_template = self._build_bg_template(key[0], key[1], key[2], key[3])
             self._cached_banner_key = key
 
     def render_frame(self, now_mono: Optional[float] = None) -> Image.Image:
         """Render a single 24-bit RGB colour video frame."""
-        if now_mono is None:
-            now_mono = time.monotonic()
-        elapsed = max(0.0, now_mono - self._start_time)
+        with self._lock:
+            v = settings_store.get_video()
+            if v["width"] != self.width or v["height"] != self.height:
+                self._init_dimensions(v["width"], v["height"])
 
-        disp = settings_store.get_display()
-        self._ensure_bg_template(disp)
+            if now_mono is None:
+                now_mono = time.monotonic()
+            elapsed = max(0.0, now_mono - self._start_time)
 
-        W, H = self.width, self.height
-        frame = self._bg_template.copy()
+            disp = settings_store.get_display()
+            self._ensure_bg_template(disp)
 
-        # --- 1. TOP BAR: Date on Left ("Tue Nov 29, 2005"), Time on Right ("0:08 am") ---
-        now_dt = datetime.now()
-        date_str = f"{now_dt.strftime('%a %b')} {now_dt.day}, {now_dt.year}"
-        hour_12 = now_dt.hour % 12 or 12
-        ampm = "am" if now_dt.hour < 12 else "pm"
-        time_str = f"{hour_12}:{now_dt.strftime('%M')} {ampm}"
+            W, H = self.width, self.height
+            frame = self._bg_template.copy()
 
-        top_y = self._s(30)
-        clock_fill = (232, 232, 236)
-        clock_shadow = (16, 16, 18)
+            # --- 1. TOP BAR: Date on Left ("Tue Nov 29, 2005"), Time on Right ("0:08 am") ---
+            now_dt = datetime.now()
+            date_str = f"{now_dt.strftime('%a %b')} {now_dt.day}, {now_dt.year}"
+            hour_12 = now_dt.hour % 12 or 12
+            ampm = "am" if now_dt.hour < 12 else "pm"
+            time_str = f"{hour_12}:{now_dt.strftime('%M')} {ampm}"
 
-        # Left Date
-        self._draw_wide_text_with_shadow(
-            frame,
-            (self._s(96), top_y),
-            date_str,
-            self.font_clock,
-            fill=clock_fill,
-            shadow_fill=clock_shadow,
-            shadow_offset=(self._s(4), self._s(4)),
-            stretch_x=1.10,
-        )
+            top_y = self._sy(30)
+            clock_fill = (232, 232, 236)
+            clock_shadow = (16, 16, 18)
 
-        # Right Time
-        time_w = self._measure_stretched(time_str, self.font_clock, stretch_x=1.10)
-        self._draw_wide_text_with_shadow(
-            frame,
-            (W - self._s(96) - time_w, top_y),
-            time_str,
-            self.font_clock,
-            fill=clock_fill,
-            shadow_fill=clock_shadow,
-            shadow_offset=(self._s(4), self._s(4)),
-            stretch_x=1.10,
-        )
-
-        # --- 2. MIDDLE BAND: Indented All-Caps Slab-Serif Bulletin Copy ---
-        playlist = feed_manager.get_playlist()
-        total_pages = max(1, len(playlist))
-        page_dur = max(4.0, float(disp.get("page_duration", config.PAGE_DURATION)))
-        page_idx = int(elapsed // page_dur) % total_pages
-        page_elapsed = elapsed % page_dur
-        item: BulletinItem = playlist[page_idx]
-
-        lines = _wrap_indented_story(item.broadcast_copy, width=29, indent_spaces=3, max_lines=6)
-
-        tw_dur = float(disp.get("typewriter_duration", config.TYPEWRITER_DURATION))
-        if tw_dur > 0.05:
-            reveal = min(1.0, page_elapsed / tw_dur)
-        else:
-            reveal = 1.0
-
-        total_chars = sum(len(ln) for ln in lines)
-        chars_to_show = int(math.ceil(total_chars * reveal))
-
-        story_x = self._s(62)
-        story_y = self.top_bar_h + self._s(26)
-        line_h = self._s(58)
-
-        # Pale ice-white text with deep navy drop shadow (exact match to ASN reference photo)
-        story_fill = (214, 226, 246)
-        story_shadow = (5, 20, 54)
-
-        rem = chars_to_show
-        for ln in lines:
-            if rem <= 0:
-                break
-            visible = ln[:rem]
-            rem -= len(ln)
             self._draw_wide_text_with_shadow(
                 frame,
-                (story_x, story_y),
-                visible,
-                self.font_story,
-                fill=story_fill,
-                shadow_fill=story_shadow,
+                (self._sx(96), top_y),
+                date_str,
+                self.font_clock,
+                fill=clock_fill,
+                shadow_fill=clock_shadow,
                 shadow_offset=(self._s(4), self._s(4)),
-                stretch_x=1.12,
+                stretch_x=1.10,
             )
-            story_y += line_h
 
-        # --- 3. CRT Scanlines, Vignette & Analog Noise ---
-        use_scan = bool(disp.get("scanlines", config.SCANLINES))
-        use_vig = bool(disp.get("crt_vignette", config.CRT_VIGNETTE))
-        use_noise = bool(disp.get("crt_noise", config.CRT_NOISE))
+            time_w = self._measure_stretched(time_str, self.font_clock, stretch_x=1.10)
+            self._draw_wide_text_with_shadow(
+                frame,
+                (W - self._sx(96) - time_w, top_y),
+                time_str,
+                self.font_clock,
+                fill=clock_fill,
+                shadow_fill=clock_shadow,
+                shadow_offset=(self._s(4), self._s(4)),
+                stretch_x=1.10,
+            )
 
-        if use_scan and use_vig:
-            frame = ImageChops.multiply(frame, self._scanline_mask)
-        elif use_scan:
-            frame = ImageChops.multiply(frame, self._scanline_only_mask)
-        elif use_vig:
-            frame = ImageChops.multiply(frame, self._vignette_only_mask)
+            # --- 2. MIDDLE BAND: Indented All-Caps Slab-Serif Bulletin Copy ---
+            playlist = feed_manager.get_playlist()
+            total_pages = max(1, len(playlist))
+            page_dur = max(4.0, float(disp.get("page_duration", config.PAGE_DURATION)))
+            page_idx = int(elapsed // page_dur) % total_pages
+            page_elapsed = elapsed % page_dur
+            item: BulletinItem = playlist[page_idx]
 
-        if use_noise and self._noise_frames:
-            noise = self._noise_frames[self._noise_idx % len(self._noise_frames)]
-            self._noise_idx += 1
-            frame = ImageChops.add(frame, noise)
+            lines = _wrap_indented_story(item.broadcast_copy, width=29, indent_spaces=3, max_lines=6)
 
-        return frame
+            tw_dur = float(disp.get("typewriter_duration", config.TYPEWRITER_DURATION))
+            if tw_dur > 0.05:
+                reveal = min(1.0, page_elapsed / tw_dur)
+            else:
+                reveal = 1.0
+
+            total_chars = sum(len(ln) for ln in lines)
+            chars_to_show = int(math.ceil(total_chars * reveal))
+
+            story_x = self._sx(62)
+            story_y = self.top_bar_h + self._sy(26)
+            line_h = self._sy(58)
+
+            story_fill = (214, 226, 246)
+            story_shadow = (5, 20, 54)
+
+            rem = chars_to_show
+            for ln in lines:
+                if rem <= 0:
+                    break
+                visible = ln[:rem]
+                rem -= len(ln)
+                self._draw_wide_text_with_shadow(
+                    frame,
+                    (story_x, story_y),
+                    visible,
+                    self.font_story,
+                    fill=story_fill,
+                    shadow_fill=story_shadow,
+                    shadow_offset=(self._s(4), self._s(4)),
+                    stretch_x=1.12,
+                )
+                story_y += line_h
+
+            # --- 3. CRT Scanlines, Vignette & Analog Noise ---
+            use_scan = bool(disp.get("scanlines", config.SCANLINES))
+            use_vig = bool(disp.get("crt_vignette", config.CRT_VIGNETTE))
+            use_noise = bool(disp.get("crt_noise", config.CRT_NOISE))
+
+            if use_scan and use_vig:
+                frame = ImageChops.multiply(frame, self._scanline_mask)
+            elif use_scan:
+                frame = ImageChops.multiply(frame, self._scanline_only_mask)
+            elif use_vig:
+                frame = ImageChops.multiply(frame, self._vignette_only_mask)
+
+            if use_noise and self._noise_frames:
+                noise = self._noise_frames[self._noise_idx % len(self._noise_frames)]
+                self._noise_idx += 1
+                frame = ImageChops.add(frame, noise)
+
+            return frame
 
     def render_png_bytes(self) -> bytes:
         img = self.render_frame()

@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="420" viewBox="0 0 1280 420">
+  <rect width="1280" height="420" fill="#0c0c0c"/>
+  <g font-family="'Courier New', Courier, Menlo, monospace" fill="#e8e8e8">
+    <!-- Tabs Bar with Tab 2 Active -->
+    <g transform="translate(24, 18)" font-size="13" font-weight="bold">
+      <rect x="0" y="0" width="265" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="132" y="22" fill="#e8e8e8" text-anchor="middle">1. RSS FEEDS &amp; RADIO TUNER</text>
+
+      <rect x="275" y="0" width="265" height="34" fill="#d8d8d8" stroke="#ffffff" stroke-width="2"/>
+      <text x="407" y="22" fill="#0c0c0c" text-anchor="middle">2. RESOLUTION &amp; ENCODING</text>
+
+      <rect x="550" y="0" width="255" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="677" y="22" fill="#e8e8e8" text-anchor="middle">3. BANNER &amp; CRT DISPLAY</text>
+
+      <rect x="815" y="0" width="235" height="34" fill="#181818" stroke="#6e6e6e" stroke-width="2"/>
+      <text x="932" y="22" fill="#e8e8e8" text-anchor="middle">4. LOGIN &amp; SECURITY</text>
+    </g>
+
+    <!-- Resolution Box -->
+    <rect x="24" y="68" width="1232" height="330" fill="#161616" stroke="#6e6e6e" stroke-width="2"/>
+    <rect x="24" y="68" width="1232" height="32" fill="#282828" stroke="#6e6e6e" stroke-width="1"/>
+    <text x="36" y="89" font-size="14" font-weight="bold">[ STREAM RESOLUTION, FRAMERATE &amp; BITRATE ]</text>
+    <rect x="938" y="72" width="306" height="24" fill="#d8d8d8" stroke="#ffffff"/>
+    <text x="1091" y="88" font-size="12" font-weight="bold" fill="#0c0c0c" text-anchor="middle">APPLY RESOLUTION &amp; RESTART ENCODER</text>
+
+    <g transform="translate(40, 114)" font-size="12">
+      <text x="0" y="14" fill="#9e9e9e" font-size="11">QUICK RESOLUTION &amp; CLOUD COST PRESETS</text>
+
+      <!-- 5 Preset Cards -->
+      <rect x="0" y="24" width="230" height="68" fill="#101010" stroke="#6e6e6e"/>
+      <text x="12" y="46" font-weight="bold" fill="#ffffff">1080p Full HD (1920x1080)</text>
+      <text x="12" y="66" fill="#9e9e9e" font-size="11">24 fps • 3500k • Local LAN</text>
+
+      <rect x="242" y="24" width="230" height="68" fill="#101010" stroke="#6e6e6e"/>
+      <text x="254" y="46" font-weight="bold" fill="#ffffff">720p HD Default (1280x720)</text>
+      <text x="254" y="66" fill="#9e9e9e" font-size="11">24 fps • 2200k • HD IPTV</text>
+
+      <rect x="484" y="24" width="236" height="68" fill="#242424" stroke="#ffffff" stroke-width="2"/>
+      <text x="496" y="46" font-weight="bold" fill="#ffffff">540p Railway Saver (960x540)</text>
+      <text x="496" y="66" fill="#d8d8d8" font-size="11">12 fps • 800k • Fits $5 Plan</text>
+
+      <rect x="732" y="24" width="230" height="68" fill="#101010" stroke="#6e6e6e"/>
+      <text x="744" y="46" font-weight="bold" fill="#ffffff">480p Widescreen (854x480)</text>
+      <text x="744" y="66" fill="#9e9e9e" font-size="11">15 fps • 900k • 16:9 SD</text>
+
+      <rect x="974" y="24" width="226" height="68" fill="#101010" stroke="#6e6e6e"/>
+      <text x="986" y="46" font-weight="bold" fill="#ffffff">480i 4:3 CRT (640x480)</text>
+      <text x="986" y="66" fill="#9e9e9e" font-size="11">15 fps • 800k • Classic 4:3</text>
+
+      <!-- Custom Inputs Row -->
+      <g transform="translate(0, 114)">
+        <text x="0" y="14" fill="#9e9e9e" font-size="11">WIDTH (PX)</text>
+        <rect x="0" y="20" width="280" height="32" fill="#0b0b0b" stroke="#6e6e6e"/>
+        <text x="12" y="41" font-weight="bold">960</text>
+
+        <text x="304" y="14" fill="#9e9e9e" font-size="11">HEIGHT (PX)</text>
+        <rect x="304" y="20" width="280" height="32" fill="#0b0b0b" stroke="#6e6e6e"/>
+        <text x="316" y="41" font-weight="bold">540</text>
+
+        <text x="608" y="14" fill="#9e9e9e" font-size="11">FRAME RATE (FPS)</text>
+        <rect x="608" y="20" width="280" height="32" fill="#0b0b0b" stroke="#6e6e6e"/>
+        <text x="620" y="41" font-weight="bold">12 fps (Railway Saver)</text>
+
+        <text x="912" y="14" fill="#9e9e9e" font-size="11">H.264 VIDEO BITRATE</text>
+        <rect x="912" y="20" width="288" height="32" fill="#0b0b0b" stroke="#6e6e6e"/>
+        <text x="924" y="41" font-weight="bold">800 kbps (SD / Cloud Saver)</text>
+      </g>
+
+      <!-- Estimator Bar -->
+      <rect x="0" y="186" width="1200" height="58" fill="#101010" stroke="#454545"/>
+      <text x="14" y="208" font-weight="bold" fill="#ffffff">ESTIMATED STREAM BANDWIDTH &amp; CLOUD FOOTPRINT</text>
+      <text x="14" y="230" fill="#b8b8b8" font-size="12">Active Profile: 960x540 @ 12 fps (800k video + 128k audio)  •  Outbound Stream: ~0.40 GB/hr watched  •  Est. 24/7 Load: ~0.09 vCPU (~$3.10/mo)</text>
+    </g>
+  </g>
+</svg>
