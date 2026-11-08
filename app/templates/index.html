@@ -137,7 +137,11 @@
       background: var(--border-bright);
       color: #0a0a0a;
     }
+<<<<<<< HEAD
     input[type="text"], input[type="url"], input[type="number"], input[type="password"], select, textarea {
+=======
+    input[type="text"], input[type="url"], input[type="number"], input[type="password"], select {
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
       width: 100%;
       background: #0b0b0b;
       color: var(--text);
@@ -146,7 +150,11 @@
       font-family: inherit;
       font-size: 0.85rem;
     }
+<<<<<<< HEAD
     input:focus, select:focus, textarea:focus {
+=======
+    input:focus, select:focus {
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
       outline: none;
       border-color: var(--border-bright);
     }
@@ -483,7 +491,11 @@
     <!-- Settings Tabs Navigation Bar -->
     <div class="tabs-bar">
       <button class="tab-btn active-tab" id="tabBtnFeeds" onclick="switchTab('feeds')">
+<<<<<<< HEAD
         1. RSS FEEDS &amp; AUDIO SOURCE
+=======
+        1. RSS FEEDS &amp; RADIO TUNER
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
       </button>
       <button class="tab-btn" id="tabBtnResolution" onclick="switchTab('resolution')">
         2. RESOLUTION &amp; ENCODING
@@ -491,11 +503,16 @@
       <button class="tab-btn" id="tabBtnBanner" onclick="switchTab('banner')">
         3. BANNER &amp; CRT DISPLAY
       </button>
+<<<<<<< HEAD
       <button class="tab-btn" id="tabBtnEpg" onclick="switchTab('epg')">
         4. EPG &amp; M3U GUIDE
       </button>
       <button class="tab-btn" id="tabBtnSecurity" onclick="switchTab('security')">
         5. LOGIN &amp; SECURITY
+=======
+      <button class="tab-btn" id="tabBtnSecurity" onclick="switchTab('security')">
+        4. LOGIN &amp; SECURITY
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
       </button>
     </div>
 
@@ -528,23 +545,37 @@
           </form>
         </div>
 
+<<<<<<< HEAD
         <!-- Radio Station Presets & Subsonic / Gonic Music Control -->
         <div class="box">
           <div class="box-title">
             <span>[ AUDIO SOURCE: RADIO STREAM OR SUBSONIC / GONIC ]</span>
+=======
+        <!-- Radio Station Presets & Audio Control -->
+        <div class="box">
+          <div class="box-title">
+            <span>[ RADIO STATION PRESETS &amp; AUDIO ]</span>
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
             <span id="activeAudioBadge">MODE: STREAM</span>
           </div>
 
           <div style="margin-bottom: 12px;">
+<<<<<<< HEAD
             <label>Active Audio Output Mode</label>
             <div class="controls-row" style="margin-top: 4px;">
               <button id="modeBtnStream" onclick="setAudioMode('stream')">LIVE RADIO STREAM</button>
               <button id="modeBtnSubsonic" onclick="setAudioMode('subsonic')">SUBSONIC / GONIC MUSIC</button>
+=======
+            <label>Audio Output Mode</label>
+            <div class="controls-row" style="margin-top: 4px;">
+              <button id="modeBtnStream" onclick="setAudioMode('stream')">LIVE RADIO STREAM</button>
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
               <button id="modeBtnHum" onclick="setAudioMode('hum')">60Hz CRT HUM</button>
               <button id="modeBtnSilent" onclick="setAudioMode('silent')">SILENT / MUTE</button>
             </div>
           </div>
 
+<<<<<<< HEAD
           <!-- Sub-panel selector: Radio Presets vs Subsonic Library -->
           <div class="controls-row" style="margin-bottom: 12px; border-bottom: 1px solid #333; padding-bottom: 8px;">
             <button id="subTabRadioBtn" class="active-btn" onclick="showAudioConfigPanel('radio')">
@@ -647,6 +678,26 @@
               </button>
             </div>
           </div>
+=======
+          <label>Saved Radio Station Presets</label>
+          <div id="radioPresetsList" class="item-list" style="margin-top: 6px;"></div>
+
+          <form id="addRadioForm" onsubmit="handleAddRadioPreset(event)" style="margin-top: 14px; border-top: 1px solid #333; padding-top: 12px;">
+            <div class="form-row">
+              <div>
+                <label for="newRadioName">Station Name</label>
+                <input type="text" id="newRadioName" placeholder="e.g. CKUL-FM 96.5" maxlength="50" required />
+              </div>
+              <div>
+                <label for="newRadioUrl">Stream URL (MP3 / AAC / Icecast)</label>
+                <input type="url" id="newRadioUrl" placeholder="https://..." required />
+              </div>
+              <div>
+                <button type="submit">+ SAVE PRESET</button>
+              </div>
+            </div>
+          </form>
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         </div>
       </div>
     </div>
@@ -782,6 +833,7 @@
       </div>
     </div>
 
+<<<<<<< HEAD
     <!-- TAB 4: EPG & M3U Guide Customization -->
     <div class="tab-panel" id="tabPanelEpg">
       <div class="box">
@@ -857,6 +909,9 @@
     </div>
 
     <!-- TAB 5: Login & Security Settings -->
+=======
+    <!-- TAB 4: Login & Security Settings -->
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     <div class="tab-panel" id="tabPanelSecurity">
       <div class="box" style="max-width: 640px;">
         <div class="box-title">
@@ -910,8 +965,11 @@
     let snapshotTimer = null;
     let displayFormDirty = false;
     let videoFormDirty = false;
+<<<<<<< HEAD
     let epgFormDirty = false;
     let subsonicFormDirty = false;
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     let currentAudioState = { audio_mode: 'stream', active_radio_id: null };
     let latestHeadlinesSample = [];
 
@@ -937,6 +995,7 @@
       }
     });
 
+<<<<<<< HEAD
     ['epgChNo', 'epgChName', 'epgGroup', 'epgProgTitle', 'epgProgSub',
      'epgCategory', 'epgDesc', 'epgSlotMins', 'chkEpgHeadlines', 'chkEpgRadio'].forEach(id => {
       const el = document.getElementById(id);
@@ -963,12 +1022,17 @@
       document.getElementById('audioPanelSubsonic').style.display = isRadio ? 'none' : 'block';
     }
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     function switchTab(tabName) {
       const map = {
         feeds: ['tabBtnFeeds', 'tabPanelFeeds'],
         resolution: ['tabBtnResolution', 'tabPanelResolution'],
         banner: ['tabBtnBanner', 'tabPanelBanner'],
+<<<<<<< HEAD
         epg: ['tabBtnEpg', 'tabPanelEpg'],
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         security: ['tabBtnSecurity', 'tabPanelSecurity']
       };
       Object.keys(map).forEach(k => {
@@ -1390,6 +1454,7 @@
       updateResourceEstimate();
     }
 
+<<<<<<< HEAD
     function populateEpgForm(epg) {
       if (!epg) return;
       document.getElementById('hdrBadge').textContent = `CH ${epg.channel_number || '10'}`;
@@ -1465,6 +1530,8 @@
       await fetchPortalState();
     }
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     async function fetchPortalState() {
       try {
         const res = await apiFetch('/api/status');
@@ -1475,13 +1542,19 @@
           document.getElementById('currentAdminUserLabel').textContent = `USER: ${data.settings.admin_username}`;
           document.getElementById('secNewUsername').value = data.settings.admin_username;
         }
+<<<<<<< HEAD
         latestHeadlinesSample = data.sample_headlines || [];
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         renderFeedsList(data.settings.rss_feeds || [], data.feeds.feeds || []);
         renderRadioPresets(data.settings.radio_presets || [], data.active_audio, data.stream);
         populateSubsonicForm(data.settings.subsonic);
         populateDisplayForm(data.settings.display);
         populateVideoForm(data.settings.video);
+<<<<<<< HEAD
         populateEpgForm(data.settings.epg);
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
 
         const tbody = document.getElementById('wireTableBody');
         if (data.sample_headlines && data.sample_headlines.length > 0) {

@@ -52,6 +52,7 @@ def _default_settings() -> Dict[str, Any]:
         ],
         "radio_presets": presets,
         "active_radio_id": default_preset_id if presets else None,
+<<<<<<< HEAD
         "audio_mode": (
             config.AUDIO_MODE
             if config.AUDIO_MODE in ("stream", "subsonic", "hum", "silent")
@@ -69,6 +70,9 @@ def _default_settings() -> Dict[str, Any]:
             "shuffle_playlist": True,
             "transcode_format": "raw",
         },
+=======
+        "audio_mode": config.AUDIO_MODE if config.AUDIO_MODE in ("stream", "hum", "silent") else "hum",
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         "video": {
             "width": config.WIDTH,
             "height": config.HEIGHT,
@@ -89,6 +93,7 @@ def _default_settings() -> Dict[str, Any]:
             "crt_noise": config.CRT_NOISE,
             "crt_vignette": config.CRT_VIGNETTE,
         },
+<<<<<<< HEAD
         "epg": {
             "channel_number": config.CHANNEL_NUMBER,
             "channel_name": config.CHANNEL_NAME,
@@ -101,6 +106,8 @@ def _default_settings() -> Dict[str, Any]:
             "append_live_headlines": False,
             "append_active_radio": False,
         },
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         "auth": {
             "username": config.ADMIN_USERNAME,
             "salt": salt,
@@ -117,7 +124,10 @@ class SettingsStore:
     - Radio station presets + active station / audio mode
     - Video resolution, FPS, and bitrate settings
     - ASN Cable 10 banner & CRT display settings
+<<<<<<< HEAD
     - Customizable XMLTV EPG & M3U guide output settings
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     - Admin login credentials & session token verification
     """
 
@@ -135,7 +145,11 @@ class SettingsStore:
                         loaded = json.load(f)
                     if isinstance(loaded, dict):
                         defaults = _default_settings()
+<<<<<<< HEAD
                         for section in ("display", "video", "epg", "subsonic", "auth"):
+=======
+                        for section in ("display", "video", "auth"):
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
                             if section in loaded and isinstance(loaded[section], dict):
                                 merged = dict(defaults[section])
                                 merged.update(loaded[section])
@@ -167,10 +181,13 @@ class SettingsStore:
             data = json.loads(json.dumps(self._data))
             auth = data.pop("auth", {})
             data["admin_username"] = auth.get("username", config.ADMIN_USERNAME)
+<<<<<<< HEAD
             if "subsonic" in data and isinstance(data["subsonic"], dict):
                 has_pw = bool(data["subsonic"].get("password"))
                 data["subsonic"]["has_password"] = has_pw
                 data["subsonic"]["password"] = ""
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
             return data
 
     # --- Authentication & Session Management ---
@@ -200,6 +217,10 @@ class SettingsStore:
                 "username": new_username[:40],
                 "salt": salt,
                 "password_hash": _hash_password(new_password, salt),
+<<<<<<< HEAD
+=======
+                # Rotate session secret so existing sessions must re-authenticate
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
                 "session_secret": secrets.token_hex(32),
             }
             self._save_unlocked()
@@ -388,6 +409,7 @@ class SettingsStore:
                 "subsonic_playlist_name": sub.get("playlist_name", ""),
             }
 
+<<<<<<< HEAD
     # --- Subsonic / Gonic Music Library Settings ---
 
     def get_subsonic(self, include_password: bool = False) -> Dict[str, Any]:
@@ -430,6 +452,8 @@ class SettingsStore:
             self._save_unlocked()
             return self.get_subsonic(include_password=False)
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     # --- Video Resolution, Framerate & Bitrate ---
 
     def get_video(self) -> Dict[str, Any]:
@@ -447,6 +471,10 @@ class SettingsStore:
             v = self.get_video()
             if "width" in updates and updates["width"] is not None:
                 w = int(updates["width"])
+<<<<<<< HEAD
+=======
+                # Ensure even width for yuv420p H.264 compatibility
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
                 w = max(320, min(1920, w - (w % 2)))
                 v["width"] = w
             if "height" in updates and updates["height"] is not None:
@@ -464,6 +492,7 @@ class SettingsStore:
             self._save_unlocked()
             return dict(v)
 
+<<<<<<< HEAD
     # --- EPG & M3U Guide Output Settings ---
 
     def get_epg(self) -> Dict[str, Any]:
@@ -506,6 +535,8 @@ class SettingsStore:
             self._save_unlocked()
             return dict(epg)
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     # --- Display & Banner Settings ---
 
     def get_display(self) -> Dict[str, Any]:
