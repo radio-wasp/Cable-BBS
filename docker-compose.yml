@@ -12,6 +12,8 @@ services:
       - PORT=8080
       - DATA_DIR=/app/data
       - TZ=America/Halifax
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=cable10
       - CHANNEL_NUMBER=10
       - CHANNEL_NAME=CABLE 10 BULLETIN
       - BANNER_LOGO=ASN
@@ -21,6 +23,7 @@ services:
       - WIDTH=1280
       - HEIGHT=720
       - FPS=24
+      - VIDEO_BITRATE=2200k
       - PAGE_DURATION=12
       - TYPEWRITER_DURATION=1.2
       - SCANLINES=true

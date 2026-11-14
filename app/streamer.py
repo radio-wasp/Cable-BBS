@@ -10,20 +10,23 @@ from typing import Generator, Optional
 from app import config
 from app.renderer import renderer
 from app.settings_store import settings_store
+from app.subsonic import subsonic_client
 
 logger = logging.getLogger("cable-bulletin.streamer")
 
 
 class HLSStreamManager:
     """
-    Continuously renders greyscale frames from BulletinRenderer and pipes them
+    Continuously renders RGB colour frames from BulletinRenderer and pipes them
     into an FFmpeg process that outputs a live HLS stream (stream.m3u8 + .ts segments).
+    Supports live resolution, FPS, bitrate, radio stream, and Subsonic/Gonic library switching.
     """
 
     def __init__(self) -> None:
         self._running = False
         self._thread: Optional[threading.Thread] = None
         self._proc: Optional[subprocess.Popen] = None
+        self._subsonic_stop_event: Optional[threading.Event] = None
         self._frames_rendered = 0
         self._started_at: Optional[float] = None
         self._last_error: Optional[str] = None
@@ -51,10 +54,10 @@ class HLSStreamManager:
 
     def restart_encoder(self) -> None:
         """
-        Restart the active FFmpeg encoder process so new audio mode / radio preset
-        changes from the Admin Portal take effect immediately.
+        Restart the active FFmpeg encoder process so new resolution, FPS, bitrate,
+        audio mode, radio preset, or Subsonic settings take effect immediately.
         """
-        logger.info("Restarting FFmpeg encoder to apply new audio settings...")
+        logger.info("Restarting FFmpeg encoder to apply updated stream settings...")
         self._terminate_proc()
 
     def _clean_hls_dir(self) -> None:
@@ -65,8 +68,15 @@ class HLSStreamManager:
                 except OSError:
                     pass
 
-    def _build_ffmpeg_cmd(self) -> list:
-        gop = max(config.FPS, config.FPS * config.HLS_TIME)
+    def _build_ffmpeg_cmd(
+        self,
+        width: int,
+        height: int,
+        fps: int,
+        video_bitrate: str,
+        subsonic_read_fd: Optional[int] = None,
+    ) -> list:
+        gop = max(fps, fps * config.HLS_TIME)
         seg_pattern = os.path.join(config.HLS_DIR, "seg_%05d.ts")
         m3u8_path = os.path.join(config.HLS_DIR, "stream.m3u8")
 
@@ -88,16 +98,24 @@ class HLSStreamManager:
             "-pix_fmt",
             "rgb24",
             "-s",
-            f"{config.WIDTH}x{config.HEIGHT}",
+            f"{width}x{height}",
             "-r",
-            str(config.FPS),
+            str(fps),
             "-i",
             "pipe:0",
         ]
 
         # Audio input selection based on Admin Portal settings
         audio_filters = []
-        if audio_mode == "stream" and stream_url:
+        if audio_mode == "subsonic" and subsonic_read_fd is not None:
+            cmd.extend([
+                "-thread_queue_size", "512",
+                "-f", "s16le",
+                "-ar", "44100",
+                "-ac", "2",
+                "-i", f"pipe:{subsonic_read_fd}",
+            ])
+        elif audio_mode == "stream" and stream_url:
             cmd.extend([
                 "-thread_queue_size", "512",
                 "-reconnect", "1",
@@ -120,15 +138,15 @@ class HLSStreamManager:
         cmd.extend([
             "-map", "0:v:0",
             "-map", "1:a:0",
-            # H.264 video encoding (monochrome yuv420p for universal HLS compatibility)
+            # H.264 video encoding
             "-c:v", "libx264",
             "-preset", "ultrafast",
             "-tune", "zerolatency",
             "-profile:v", "main",
             "-level", "4.0",
             "-pix_fmt", "yuv420p",
-            "-b:v", config.VIDEO_BITRATE,
-            "-maxrate", config.VIDEO_BITRATE,
+            "-b:v", video_bitrate,
+            "-maxrate", video_bitrate,
             "-bufsize", "4400k",
             "-g", str(gop),
             "-keyint_min", str(gop),
@@ -155,6 +173,9 @@ class HLSStreamManager:
         return cmd
 
     def _terminate_proc(self) -> None:
+        if self._subsonic_stop_event is not None:
+            self._subsonic_stop_event.set()
+            subsonic_client.skip_current_track()
         proc = self._proc
         self._proc = None
         if proc is None:
@@ -174,12 +195,35 @@ class HLSStreamManager:
                 pass
 
     def _run_loop(self) -> None:
-        frame_interval = 1.0 / float(config.FPS)
-
         while self._running:
+            v_cfg = settings_store.get_video()
+            width = v_cfg["width"]
+            height = v_cfg["height"]
+            fps = v_cfg["fps"]
+            video_bitrate = v_cfg["video_bitrate"]
+            frame_interval = 1.0 / float(max(1, fps))
+
+            audio_cfg = settings_store.get_active_audio()
+            is_subsonic = audio_cfg.get("audio_mode") == "subsonic"
+
+            sub_r_fd: Optional[int] = None
+            sub_w_fd: Optional[int] = None
+            pass_fds = ()
+            if is_subsonic:
+                sub_r_fd, sub_w_fd = os.pipe()
+                pass_fds = (sub_r_fd,)
+
+            renderer.reconfigure(width, height)
             self._clean_hls_dir()
-            cmd = self._build_ffmpeg_cmd()
-            logger.info("Spawning FFmpeg HLS encoder: %s", " ".join(cmd))
+            cmd = self._build_ffmpeg_cmd(width, height, fps, video_bitrate, subsonic_read_fd=sub_r_fd)
+            logger.info(
+                "Spawning FFmpeg HLS encoder (%dx%d @ %dfps, %s, audio=%s)",
+                width,
+                height,
+                fps,
+                video_bitrate,
+                audio_cfg.get("audio_mode"),
+            )
 
             try:
                 self._proc = subprocess.Popen(
@@ -187,13 +231,42 @@ class HLSStreamManager:
                     stdin=subprocess.PIPE,
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
-                    bufsize=config.WIDTH * config.HEIGHT * 3 * 2,
+                    bufsize=width * height * 3 * 2,
+                    pass_fds=pass_fds,
                 )
             except Exception as exc:
                 self._last_error = str(exc)
                 logger.error("Failed to start FFmpeg: %s", exc)
+                if sub_r_fd is not None:
+                    try:
+                        os.close(sub_r_fd)
+                    except OSError:
+                        pass
+                if sub_w_fd is not None:
+                    try:
+                        os.close(sub_w_fd)
+                    except OSError:
+                        pass
                 time.sleep(3)
                 continue
+
+            # Close read end in parent so child FFmpeg owns it exclusively
+            if sub_r_fd is not None:
+                try:
+                    os.close(sub_r_fd)
+                except OSError:
+                    pass
+
+            # Start continuous Subsonic PCM feeder thread if in subsonic mode
+            if is_subsonic and sub_w_fd is not None:
+                stop_ev = threading.Event()
+                self._subsonic_stop_event = stop_ev
+                feeder_thread = threading.Thread(
+                    target=subsonic_client.feed_pcm_pipe,
+                    args=(sub_w_fd, stop_ev),
+                    daemon=True,
+                )
+                feeder_thread.start()
 
             stderr_thread = threading.Thread(
                 target=self._log_stderr, args=(self._proc,), daemon=True
@@ -206,6 +279,8 @@ class HLSStreamManager:
                 while self._running and self._proc and self._proc.poll() is None:
                     now = time.monotonic()
                     img = renderer.render_frame(now_mono=now)
+                    if img.width != width or img.height != height:
+                        break
                     raw_bytes = img.tobytes()
 
                     if self._proc.stdin:
@@ -249,13 +324,19 @@ class HLSStreamManager:
 
     def get_status(self) -> dict:
         audio_cfg = settings_store.get_active_audio()
+        v_cfg = settings_store.get_video()
         return {
             "running": self._running and (self._proc is not None and self._proc.poll() is None),
             "hls_ready": self.is_ready(),
             "frames_rendered": self._frames_rendered,
-            "resolution": f"{config.WIDTH}x{config.HEIGHT}",
-            "fps": config.FPS,
+            "resolution": f"{v_cfg['width']}x{v_cfg['height']}",
+            "width": v_cfg["width"],
+            "height": v_cfg["height"],
+            "fps": v_cfg["fps"],
+            "video_bitrate": v_cfg["video_bitrate"],
             "audio": audio_cfg,
+            "subsonic_now_playing": subsonic_client.get_now_playing(),
+            "subsonic_error": subsonic_client.get_last_error(),
             "uptime_seconds": int(time.time() - self._started_at) if self._started_at else 0,
             "last_error": self._last_error,
         }
