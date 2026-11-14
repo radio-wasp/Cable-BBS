@@ -19,7 +19,11 @@ class HLSStreamManager:
     """
     Continuously renders RGB colour frames from BulletinRenderer and pipes them
     into an FFmpeg process that outputs a live HLS stream (stream.m3u8 + .ts segments).
+<<<<<<< HEAD
     Supports live resolution, FPS, bitrate, radio stream, and Subsonic/Gonic library switching.
+=======
+    Supports live resolution, FPS, bitrate, and radio stream switching.
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
     """
 
     def __init__(self) -> None:
@@ -55,7 +59,11 @@ class HLSStreamManager:
     def restart_encoder(self) -> None:
         """
         Restart the active FFmpeg encoder process so new resolution, FPS, bitrate,
+<<<<<<< HEAD
         audio mode, radio preset, or Subsonic settings take effect immediately.
+=======
+        audio mode, or radio preset changes from the Admin Portal take effect immediately.
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         """
         logger.info("Restarting FFmpeg encoder to apply updated stream settings...")
         self._terminate_proc()
@@ -68,6 +76,7 @@ class HLSStreamManager:
                 except OSError:
                     pass
 
+<<<<<<< HEAD
     def _build_ffmpeg_cmd(
         self,
         width: int,
@@ -76,6 +85,9 @@ class HLSStreamManager:
         video_bitrate: str,
         subsonic_read_fd: Optional[int] = None,
     ) -> list:
+=======
+    def _build_ffmpeg_cmd(self, width: int, height: int, fps: int, video_bitrate: str) -> list:
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
         gop = max(fps, fps * config.HLS_TIME)
         seg_pattern = os.path.join(config.HLS_DIR, "seg_%05d.ts")
         m3u8_path = os.path.join(config.HLS_DIR, "stream.m3u8")
@@ -203,6 +215,7 @@ class HLSStreamManager:
             video_bitrate = v_cfg["video_bitrate"]
             frame_interval = 1.0 / float(max(1, fps))
 
+<<<<<<< HEAD
             audio_cfg = settings_store.get_active_audio()
             is_subsonic = audio_cfg.get("audio_mode") == "subsonic"
 
@@ -224,6 +237,12 @@ class HLSStreamManager:
                 video_bitrate,
                 audio_cfg.get("audio_mode"),
             )
+=======
+            renderer.reconfigure(width, height)
+            self._clean_hls_dir()
+            cmd = self._build_ffmpeg_cmd(width, height, fps, video_bitrate)
+            logger.info("Spawning FFmpeg HLS encoder (%dx%d @ %dfps, %s): %s", width, height, fps, video_bitrate, " ".join(cmd))
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
 
             try:
                 self._proc = subprocess.Popen(
@@ -232,7 +251,10 @@ class HLSStreamManager:
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.PIPE,
                     bufsize=width * height * 3 * 2,
+<<<<<<< HEAD
                     pass_fds=pass_fds,
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
                 )
             except Exception as exc:
                 self._last_error = str(exc)
@@ -279,6 +301,10 @@ class HLSStreamManager:
                 while self._running and self._proc and self._proc.poll() is None:
                     now = time.monotonic()
                     img = renderer.render_frame(now_mono=now)
+<<<<<<< HEAD
+=======
+                    # If resolution changed mid-flight, break to restart FFmpeg with new dimensions
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
                     if img.width != width or img.height != height:
                         break
                     raw_bytes = img.tobytes()

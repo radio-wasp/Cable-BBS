@@ -478,6 +478,7 @@ async def api_select_radio(payload: Dict[str, Any] = Body(...), _user: str = Dep
     return {"ok": True, "active_audio": active}
 
 
+<<<<<<< HEAD
 # --- Subsonic / Gonic Music Library Control ---
 
 @app.put("/api/subsonic/config")
@@ -526,6 +527,8 @@ async def api_skip_subsonic_track(_user: str = Depends(require_admin)):
     return {"ok": True}
 
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
 # --- Video Resolution, FPS & Bitrate ---
 
 @app.put("/api/video")
@@ -539,6 +542,7 @@ async def api_update_video(payload: Dict[str, Any] = Body(...), _user: str = Dep
     return {"ok": True, "video": updated}
 
 
+<<<<<<< HEAD
 # --- EPG & M3U Guide Output Customization ---
 
 @app.put("/api/epg")
@@ -550,6 +554,8 @@ async def api_update_epg(payload: Dict[str, Any] = Body(...), _user: str = Depen
     return {"ok": True, "epg": updated}
 
 
+=======
+>>>>>>> 6060c7684f3f1c32df038d6ebceb421510686eda
 # --- Display & Banner Branding ---
 
 @app.put("/api/display")
